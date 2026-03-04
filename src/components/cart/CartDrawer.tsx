@@ -1,4 +1,5 @@
 import { X, Plus, Minus, ShoppingBag } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useCart } from "@/context/CartContext";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -73,9 +74,9 @@ const CartDrawer = () => {
                     <span className="font-body font-semibold text-card-foreground">Total</span>
                     <span className="text-2xl font-display font-bold text-primary">${total.toFixed(2)}</span>
                   </div>
-                  <button className="w-full py-3.5 bg-primary text-primary-foreground rounded-2xl font-display font-semibold text-lg hover:opacity-90 transition-opacity">
+                  <Link to="/checkout" onClick={() => setIsOpen(false)} className="block w-full py-3.5 bg-primary text-primary-foreground rounded-2xl font-display font-semibold text-lg hover:opacity-90 transition-opacity text-center">
                     Checkout
-                  </button>
+                  </Link>
                 </div>
               </>
             )}
