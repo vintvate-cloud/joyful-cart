@@ -22,9 +22,10 @@ const Footer = () => (
         <div>
           <h4 className="font-display font-semibold text-background mb-4">Company</h4>
           <div className="space-y-2">
-            {["About Us", "Blog", "Contact", "Careers"].map((item) => (
-              <Link key={item} to="/" className="block text-sm text-background/60 hover:text-secondary transition-colors font-body">{item}</Link>
-            ))}
+            <Link to="/about" className="block text-sm text-background/60 hover:text-secondary transition-colors font-body">About Us</Link>
+            <Link to="/blog" className="block text-sm text-background/60 hover:text-secondary transition-colors font-body">Blog</Link>
+            <Link to="/profile" className="block text-sm text-background/60 hover:text-secondary transition-colors font-body">My Account</Link>
+            <Link to="/login" className="block text-sm text-background/60 hover:text-secondary transition-colors font-body">Login</Link>
           </div>
         </div>
         <div>
