@@ -1,0 +1,117 @@
+import { useState } from "react";
+import { Search, ShoppingCart, User, Menu, X } from "lucide-react";
+import { Link } from "react-router-dom";
+import { useCart } from "@/context/CartContext";
+import { motion, AnimatePresence } from "framer-motion";
+
+const navItems = [
+  { label: "Home", to: "/" },
+  { label: "Toys", to: "/shop?category=Toys" },
+  { label: "Clothes", to: "/shop?category=Clothes" },
+  { label: "RC Cars", to: "/shop?category=RC Cars" },
+  { label: "Gifts", to: "/shop?category=Gifts" },
+  { label: "Books", to: "/shop?category=Books" },
+  { label: "Blog", to: "/blog" },
+  { label: "About", to: "/about" },
+];
+
+const Header = () => {
+  const { setIsOpen, itemCount } = useCart();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
+
+  return (
+    <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-md border-b border-border shadow-sm">
+      {/* Top bar */}
+      <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-4">
+        {/* Logo */}
+        <Link to="/" className="flex items-center gap-2 shrink-0">
+          <span className="text-3xl">🧸</span>
+          <span className="text-2xl font-display font-bold text-primary">
+            Toy<span className="text-secondary">Box</span>
+          </span>
+        </Link>
+
+        {/* Search */}
+        <div className={`hidden md:flex flex-1 max-w-md mx-8 relative transition-all ${searchFocused ? "max-w-lg" : ""}`}>
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search toys, clothes, gifts..."
+            className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-muted border-none outline-none text-sm font-body focus:ring-2 focus:ring-primary/30 transition-all"
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+          />
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-3">
+          <button className="p-2 rounded-xl hover:bg-muted transition-colors">
+            <User className="h-5 w-5 text-foreground" />
+          </button>
+          <button onClick={() => setIsOpen(true)} className="p-2 rounded-xl hover:bg-muted transition-colors relative">
+            <ShoppingCart className="h-5 w-5 text-foreground" />
+            {itemCount > 0 && (
+              <motion.span
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="absolute -top-1 -right-1 bg-accent text-accent-foreground text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center"
+              >
+                {itemCount}
+              </motion.span>
+            )}
+          </button>
+          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 rounded-xl hover:bg-muted transition-colors md:hidden">
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Desktop Nav */}
+      <nav className="hidden md:block border-t border-border/50">
+        <div className="container mx-auto px-4 flex items-center gap-1 py-1">
+          {navItems.map((item) => (
+            <Link
+              key={item.label}
+              to={item.to}
+              className="px-4 py-2 text-sm font-semibold font-body text-foreground/80 hover:text-primary hover:bg-primary/5 rounded-xl transition-all"
+            >
+              {item.label}
+            </Link>
+          ))}
+        </div>
+      </nav>
+
+      {/* Mobile Menu */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="md:hidden border-t border-border overflow-hidden"
+          >
+            <div className="p-4 space-y-1">
+              <div className="relative mb-3">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input type="text" placeholder="Search..." className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-muted text-sm font-body outline-none" />
+              </div>
+              {navItems.map((item) => (
+                <Link
+                  key={item.label}
+                  to={item.to}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block px-4 py-2.5 text-sm font-semibold font-body text-foreground/80 hover:text-primary hover:bg-primary/5 rounded-xl transition-all"
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </header>
+  );
+};
+
+export default Header;
