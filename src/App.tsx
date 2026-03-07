@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { CartProvider } from "@/context/CartContext";
+import { AuthProvider } from "@/context/AuthContext";
 import { ThemeProvider } from "@/hooks/useTheme";
 import Index from "./pages/Index";
 import ProductPage from "./pages/ProductPage";
@@ -23,31 +24,33 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider>
-      <TooltipProvider>
-        <CartProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/shop" element={<ShopPage />} />
-              <Route path="/product/:id" element={<ProductPage />} />
-              <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/signup" element={<SignupPage />} />
-              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/about" element={<AboutPage />} />
-              <Route path="/blog" element={<BlogPage />} />
-              <Route path="/checkout" element={<CheckoutPage />} />
-              <Route path="/search" element={<SearchPage />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </CartProvider>
-      </TooltipProvider>
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider>
+        <TooltipProvider>
+          <CartProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/shop" element={<ShopPage />} />
+                <Route path="/product/:id" element={<ProductPage />} />
+                <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/signup" element={<SignupPage />} />
+                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/blog" element={<BlogPage />} />
+                <Route path="/checkout" element={<CheckoutPage />} />
+                <Route path="/search" element={<SearchPage />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </CartProvider>
+        </TooltipProvider>
+      </ThemeProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

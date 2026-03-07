@@ -1,32 +1,58 @@
 import { useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import CartDrawer from "@/components/cart/CartDrawer";
 import ProductCard from "@/components/product/ProductCard";
-import { products } from "@/data/products";
-import { SlidersHorizontal, X } from "lucide-react";
+import { SlidersHorizontal, X, Loader2 } from "lucide-react";
 
-const allCategories = ["All", ...new Set(products.map((p) => p.category))];
-const allBrands = [...new Set(products.map((p) => p.brand))];
-const ageGroups = ["0-2", "2-4", "4-6", "6-8", "8+"];
+interface Product {
+  id: string;
+  title: string;
+  price: number;
+  originalPrice?: number;
+  image: string;
+  category: { name: string };
+  brand: string;
+  ageGroup: string;
+  rating: number;
+  badge?: string;
+  description: string;
+}
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 const ShopPage = () => {
   const [searchParams] = useSearchParams();
   const initialCat = searchParams.get("category") || "All";
+
   const [category, setCategory] = useState(initialCat);
   const [brand, setBrand] = useState("All");
   const [ageGroup, setAgeGroup] = useState("All");
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 100]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 500]);
   const [showFilters, setShowFilters] = useState(false);
 
+  const { data: products = [], isLoading } = useQuery<Product[]>({
+    queryKey: ['products'],
+    queryFn: async () => {
+      const res = await fetch(`${API_URL}/products`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch products');
+      return res.json();
+    }
+  });
+
+  const allCategories = useMemo(() => ["All", ...new Set(products.map((p) => p.category.name))], [products]);
+  const allBrands = useMemo(() => [...new Set(products.map((p) => p.brand))], [products]);
+  const ageGroups = ["0-2", "2-4", "4-6", "6-8", "8+"];
+
   const filtered = useMemo(() => products.filter((p) => {
-    if (category !== "All" && p.category !== category) return false;
+    if (category !== "All" && p.category.name !== category) return false;
     if (brand !== "All" && p.brand !== brand) return false;
     if (ageGroup !== "All" && p.ageGroup !== ageGroup) return false;
     if (p.price < priceRange[0] || p.price > priceRange[1]) return false;
     return true;
-  }), [category, brand, ageGroup, priceRange]);
+  }), [products, category, brand, ageGroup, priceRange]);
 
   const FilterPanel = () => (
     <div className="space-y-6">
@@ -65,7 +91,7 @@ const ShopPage = () => {
       <div>
         <h3 className="font-display font-semibold text-sm text-foreground mb-3">Price Range</h3>
         <div className="flex items-center gap-2">
-          <input type="range" min="0" max="100" value={priceRange[1]} onChange={(e) => setPriceRange([priceRange[0], Number(e.target.value)])} className="flex-1 accent-primary" />
+          <input type="range" min="0" max="500" value={priceRange[1]} onChange={(e) => setPriceRange([priceRange[0], Number(e.target.value)])} className="flex-1 accent-primary" />
           <span className="text-sm font-body text-muted-foreground">Up to ${priceRange[1]}</span>
         </div>
       </div>
@@ -78,8 +104,8 @@ const ShopPage = () => {
       <main className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-display font-bold text-foreground">Shop</h1>
-            <p className="text-muted-foreground font-body text-sm mt-1">{filtered.length} products</p>
+            <h1 className="text-3xl font-display font-bold text-foreground tracking-tight">Shop</h1>
+            <p className="text-muted-foreground font-body text-sm mt-1">{filtered.length} products found in JoyLand</p>
           </div>
           <button onClick={() => setShowFilters(!showFilters)} className="md:hidden flex items-center gap-2 px-4 py-2 rounded-xl bg-muted text-sm font-semibold font-body">
             {showFilters ? <X className="h-4 w-4" /> : <SlidersHorizontal className="h-4 w-4" />}
@@ -87,21 +113,28 @@ const ShopPage = () => {
           </button>
         </div>
 
-        <div className="flex gap-8">
-          <aside className={`${showFilters ? "block" : "hidden"} md:block w-full md:w-64 shrink-0`}>
-            <div className="sticky top-32 bg-card p-5 rounded-2xl border border-border">
+        <div className="flex flex-col md:flex-row gap-8">
+          <aside className={`${showFilters ? "block" : "hidden"} md:block w-full md:w-64 shrink-0 transition-all`}>
+            <div className="sticky top-32 bg-card p-5 rounded-2xl border border-border shadow-sm">
               <FilterPanel />
             </div>
           </aside>
+
           <div className="flex-1">
-            {filtered.length === 0 ? (
-              <div className="text-center py-20">
-                <p className="text-xl font-display text-muted-foreground">No products found</p>
-                <button onClick={() => { setCategory("All"); setBrand("All"); setAgeGroup("All"); setPriceRange([0, 100]); }} className="mt-4 text-primary underline font-body">Clear filters</button>
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-4">
+                <Loader2 className="h-10 w-10 text-primary animate-spin" />
+                <p className="font-display font-semibold text-muted-foreground animate-pulse">Fetching the best toys...</p>
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="text-center py-20 bg-muted/30 rounded-3xl border border-dashed border-border">
+                <span className="text-4xl">🔎</span>
+                <p className="text-xl font-display font-bold text-foreground mt-4">No toys found for these filters</p>
+                <button onClick={() => { setCategory("All"); setBrand("All"); setAgeGroup("All"); setPriceRange([0, 500]); }} className="mt-4 text-primary font-bold hover:underline transition-all">Clear all filters</button>
               </div>
             ) : (
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                {filtered.map((p) => <ProductCard key={p.id} product={p} />)}
+                {filtered.map((p) => <ProductCard key={p.id} product={{ ...p, category: p.category.name }} />)}
               </div>
             )}
           </div>

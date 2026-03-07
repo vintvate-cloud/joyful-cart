@@ -1,12 +1,34 @@
-import { useState } from "react";
-import { User, Mail, MapPin, Phone, Package, Heart, Settings } from "lucide-react";
+import { useState, useEffect } from "react";
+import { User, Mail, MapPin, Phone, Package, Heart, Settings, LogOut } from "lucide-react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import CartDrawer from "@/components/cart/CartDrawer";
+import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/context/AuthContext";
 
 const ProfilePage = () => {
+  const { user, isLoading, logout } = useAuth();
   const [activeTab, setActiveTab] = useState("profile");
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (!isLoading && !user) navigate("/login");
+  }, [user, isLoading, navigate]);
+
+  const handleLogout = () => {
+    logout();
+    toast({
+      title: "Logged out successfully",
+      description: "Come back soon to Joyful Cart! 🧸",
+    });
+    navigate("/");
+  };
+
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center font-display text-2xl animate-pulse text-primary">Loading JoyLand...</div>;
+  if (!user) return null;
 
   const tabs = [
     { id: "profile", label: "Profile", icon: User },
@@ -17,8 +39,6 @@ const ProfilePage = () => {
 
   const mockOrders = [
     { id: "ORD-001", date: "2024-01-15", total: 89.97, status: "Delivered", items: 3 },
-    { id: "ORD-002", date: "2024-01-28", total: 49.99, status: "Shipped", items: 1 },
-    { id: "ORD-003", date: "2024-02-05", total: 134.96, status: "Processing", items: 4 },
   ];
 
   return (
@@ -28,19 +48,29 @@ const ProfilePage = () => {
       <main className="container mx-auto px-4 py-8">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           {/* Profile header */}
-          <div className="bg-card rounded-3xl border border-border p-6 mb-6 flex flex-col md:flex-row items-center gap-6">
-            <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center">
-              <User className="h-12 w-12 text-primary" />
+          <div className="bg-card rounded-3xl border border-border p-6 mb-6 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex flex-col md:flex-row items-center gap-6">
+              <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center text-4xl">
+                👤
+              </div>
+              <div className="text-center md:text-left">
+                <h1 className="text-2xl font-display font-bold text-foreground capitalize">{user.name || "Happy Shopper"}</h1>
+                <p className="text-muted-foreground font-body text-sm flex items-center justify-center md:justify-start gap-1 mt-1">
+                  <Mail className="h-3.5 w-3.5" /> {user.email}
+                </p>
+                <p className="text-muted-foreground font-body text-sm flex items-center justify-center md:justify-start gap-1 mt-0.5">
+                  <MapPin className="h-3.5 w-3.5" /> Planet Joy
+                </p>
+              </div>
             </div>
-            <div className="text-center md:text-left">
-              <h1 className="text-2xl font-display font-bold text-foreground">John Doe</h1>
-              <p className="text-muted-foreground font-body text-sm flex items-center justify-center md:justify-start gap-1 mt-1">
-                <Mail className="h-3.5 w-3.5" /> john@example.com
-              </p>
-              <p className="text-muted-foreground font-body text-sm flex items-center justify-center md:justify-start gap-1 mt-0.5">
-                <MapPin className="h-3.5 w-3.5" /> Mumbai, India
-              </p>
-            </div>
+
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-5 py-2.5 bg-destructive/10 text-destructive rounded-2xl font-display font-semibold text-sm hover:bg-destructive hover:text-white transition-all active:scale-95"
+            >
+              <LogOut className="h-4 w-4" />
+              Logout
+            </button>
           </div>
 
           {/* Tabs */}
@@ -49,9 +79,8 @@ const ProfilePage = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-body font-semibold whitespace-nowrap transition-all ${
-                  activeTab === tab.id ? "bg-primary text-primary-foreground" : "bg-card border border-border text-foreground hover:bg-muted"
-                }`}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-body font-semibold whitespace-nowrap transition-all ${activeTab === tab.id ? "bg-primary text-primary-foreground" : "bg-card border border-border text-foreground hover:bg-muted"
+                  }`}
               >
                 <tab.icon className="h-4 w-4" />
                 {tab.label}
@@ -65,10 +94,9 @@ const ProfilePage = () => {
               <h2 className="font-display font-bold text-lg text-foreground">Personal Information</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {[
-                  { label: "Full Name", value: "John Doe", icon: User },
-                  { label: "Email", value: "john@example.com", icon: Mail },
-                  { label: "Phone", value: "+91 98765 43210", icon: Phone },
-                  { label: "Address", value: "123 Main St, Mumbai, MH 400001", icon: MapPin },
+                  { label: "Full Name", value: user.name || "Happy Shopper", icon: User },
+                  { label: "Email", value: user.email, icon: Mail },
+                  { label: "Account Type", value: user.role, icon: Settings },
                 ].map((field) => (
                   <div key={field.label} className="space-y-1">
                     <label className="text-xs font-body text-muted-foreground">{field.label}</label>
@@ -79,9 +107,6 @@ const ProfilePage = () => {
                   </div>
                 ))}
               </div>
-              <button className="px-6 py-2.5 bg-primary text-primary-foreground rounded-2xl font-display font-semibold text-sm hover:opacity-90 transition-opacity">
-                Edit Profile
-              </button>
             </div>
           )}
 
@@ -94,15 +119,20 @@ const ProfilePage = () => {
                     <p className="text-sm text-muted-foreground font-body">{order.date} • {order.items} items</p>
                   </div>
                   <div className="flex items-center gap-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-body font-semibold ${
-                      order.status === "Delivered" ? "bg-success/10 text-success" :
-                      order.status === "Shipped" ? "bg-primary/10 text-primary" :
-                      "bg-secondary/10 text-secondary-foreground"
-                    }`}>{order.status}</span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-body font-semibold ${order.status === "Delivered" ? "bg-success/10 text-success" :
+                        order.status === "Shipped" ? "bg-primary/10 text-primary" :
+                          "bg-secondary/10 text-secondary-foreground"
+                      }`}>{order.status}</span>
                     <span className="font-display font-bold text-foreground">${order.total.toFixed(2)}</span>
                   </div>
                 </div>
               ))}
+              {mockOrders.length === 0 && (
+                <div className="bg-card rounded-3xl border border-border p-12 text-center">
+                  <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-20" />
+                  <p className="font-display font-semibold text-muted-foreground">No orders yet. Let's start shopping! 🛍️</p>
+                </div>
+              )}
             </div>
           )}
 

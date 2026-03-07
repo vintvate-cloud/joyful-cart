@@ -1,112 +1,143 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
-import { products } from "@/data/products";
+import { useQuery } from "@tanstack/react-query";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import CartDrawer from "@/components/cart/CartDrawer";
 import ProductCard from "@/components/product/ProductCard";
 import { useCart } from "@/context/CartContext";
-import { Star, Minus, Plus, ChevronLeft, ShoppingCart } from "lucide-react";
+import { Star, Minus, Plus, ChevronLeft, ShoppingCart, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
+
+interface Product {
+  id: string;
+  title: string;
+  price: number;
+  originalPrice?: number;
+  image: string;
+  category: { id: string; name: string };
+  brand: string;
+  ageGroup: string;
+  rating: number;
+  badge?: string;
+  description: string;
+}
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 const ProductPage = () => {
   const { id } = useParams();
-  const product = products.find((p) => p.id === id);
   const { addItem } = useCart();
   const [qty, setQty] = useState(1);
-  const [selectedColor, setSelectedColor] = useState(0);
-  const [selectedSize, setSelectedSize] = useState(0);
 
-  if (!product) return (
-    <div className="min-h-screen bg-background">
-      <Header /><CartDrawer />
-      <div className="container mx-auto px-4 py-20 text-center">
-        <p className="text-xl font-display">Product not found</p>
-        <Link to="/" className="text-primary underline mt-4 inline-block font-body">Go back home</Link>
-      </div>
-      <Footer />
+  const { data: product, isLoading } = useQuery<Product>({
+    queryKey: ['product', id],
+    queryFn: async () => {
+      const res = await fetch(`${API_URL}/products/${id}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Product not found');
+      return res.json();
+    },
+    enabled: !!id
+  });
+
+  const { data: allProducts = [] } = useQuery<Product[]>({
+    queryKey: ['products'],
+    queryFn: async () => {
+      const res = await fetch(`${API_URL}/products`, { credentials: 'include' });
+      return res.json();
+    }
+  });
+
+  const related = useMemo(() => {
+    if (!product || !allProducts.length) return [];
+    return allProducts
+      .filter((p) => p.category.id === product.category.id && p.id !== product.id)
+      .slice(0, 4);
+  }, [product, allProducts]);
+
+  if (isLoading) return (
+    <div className="min-h-screen flex items-center justify-center font-display text-2xl animate-pulse text-primary">
+      Magic is happening... 🪄
     </div>
   );
 
-  const related = products.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
+  if (!product) return (
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8 text-center">
+      <span className="text-6xl mb-4">😿</span>
+      <h1 className="text-3xl font-display font-bold text-foreground">Toy Not Found</h1>
+      <p className="text-muted-foreground mt-2 max-w-sm">Oops! It seems this toy is currently playing hide and seek. Try another one!</p>
+      <Link to="/" className="mt-8 px-8 py-3 bg-primary text-white rounded-2xl font-display font-bold hover:scale-105 transition-all">Back Home</Link>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background">
       <Header /><CartDrawer />
       <main className="container mx-auto px-4 py-8">
-        <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary font-body mb-6">
-          <ChevronLeft className="h-4 w-4" /> Back to shop
+        <Link to="/shop" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary font-display font-bold mb-8 transition-colors">
+          <ChevronLeft className="h-4 w-4" /> BACK TO SHOP
         </Link>
 
-        <div className="grid md:grid-cols-2 gap-8 md:gap-12">
-          {/* Image */}
-          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="aspect-square rounded-2xl overflow-hidden bg-muted">
-            <img src={product.image} alt={product.title} className="w-full h-full object-cover" />
+        <div className="grid lg:grid-cols-2 gap-12 lg:gap-20">
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="aspect-square rounded-[2rem] overflow-hidden bg-muted group shadow-xl">
+            <img src={product.image} alt={product.title} className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-700" />
           </motion.div>
 
-          {/* Details */}
-          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col">
-            <span className="text-sm text-muted-foreground font-body">{product.brand}</span>
-            <h1 className="text-3xl font-display font-bold text-foreground mt-1 mb-3">{product.title}</h1>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="flex items-center gap-1">
-                <Star className="h-4 w-4 fill-secondary text-secondary" />
-                <span className="text-sm font-semibold font-body">{product.rating}</span>
-              </div>
-              {product.badge && <span className="px-2 py-0.5 rounded-full bg-accent/10 text-accent text-xs font-bold font-body">{product.badge}</span>}
-            </div>
-            <div className="flex items-center gap-3 mb-6">
-              <span className="text-3xl font-display font-bold text-primary">${product.price}</span>
-              {product.originalPrice && <span className="text-lg text-muted-foreground line-through font-body">${product.originalPrice}</span>}
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col py-2">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs font-display font-black tracking-widest text-primary uppercase bg-primary/10 px-3 py-1 rounded-full">{product.brand}</span>
+              {product.badge && <span className="text-xs font-display font-black tracking-widest text-secondary uppercase bg-secondary/10 px-3 py-1 rounded-full">{product.badge}</span>}
             </div>
 
-            <p className="text-muted-foreground font-body mb-6 leading-relaxed">{product.description}</p>
+            <h1 className="text-4xl md:text-5xl font-display font-black text-foreground mb-4 tracking-tight leading-none">{product.title}</h1>
 
-            {product.colors && product.colors.length > 0 && (
-              <div className="mb-5">
-                <span className="text-sm font-semibold font-body text-foreground mb-2 block">Color</span>
-                <div className="flex gap-2">
-                  {product.colors.map((c, i) => (
-                    <button key={i} onClick={() => setSelectedColor(i)} className={`w-8 h-8 rounded-full border-2 transition-all ${selectedColor === i ? "border-primary scale-110" : "border-transparent"}`} style={{ backgroundColor: c }} />
-                  ))}
-                </div>
+            <div className="flex items-center gap-4 mb-8">
+              <div className="flex items-center gap-1 bg-secondary/10 text-secondary px-3 py-1.5 rounded-xl">
+                <Star className="h-5 w-5 fill-secondary" />
+                <span className="text-base font-display font-black">{product.rating}</span>
               </div>
-            )}
+              <span className="text-muted-foreground font-body font-semibold">| Available for ages {product.ageGroup} yrs</span>
+            </div>
 
-            {product.sizes && product.sizes.length > 0 && (
-              <div className="mb-6">
-                <span className="text-sm font-semibold font-body text-foreground mb-2 block">Size</span>
-                <div className="flex gap-2">
-                  {product.sizes.map((s, i) => (
-                    <button key={s} onClick={() => setSelectedSize(i)} className={`px-4 py-2 rounded-xl text-sm font-semibold font-body border transition-all ${selectedSize === i ? "border-primary bg-primary/5 text-primary" : "border-border text-foreground hover:border-primary/30"}`}>
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+            <div className="flex items-baseline gap-4 mb-8">
+              <span className="text-5xl font-display font-black text-primary">${product.price}</span>
+              {product.originalPrice && <span className="text-2xl text-muted-foreground line-through font-body font-bold opacity-50">${product.originalPrice}</span>}
+            </div>
 
-            <div className="flex items-center gap-4 mt-auto">
-              <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2">
-                <button onClick={() => setQty(Math.max(1, qty - 1))} className="p-1 hover:bg-card rounded-lg transition-colors"><Minus className="h-4 w-4" /></button>
-                <span className="font-bold font-body w-6 text-center">{qty}</span>
-                <button onClick={() => setQty(qty + 1)} className="p-1 hover:bg-card rounded-lg transition-colors"><Plus className="h-4 w-4" /></button>
+            <p className="text-muted-foreground font-body text-lg mb-10 leading-relaxed max-w-xl">{product.description}</p>
+
+            <div className="flex flex-col sm:flex-row items-center gap-6 mt-auto">
+              <div className="flex items-center gap-6 bg-muted/50 border border-border p-2 px-4 rounded-3xl w-full sm:w-auto">
+                <button
+                  onClick={() => setQty(Math.max(1, qty - 1))}
+                  className="w-10 h-10 flex items-center justify-center hover:bg-card rounded-2xl transition-all font-black text-xl active:scale-90"
+                >
+                  <Minus className="h-5 w-5" />
+                </button>
+                <span className="font-display font-black text-2xl w-8 text-center">{qty}</span>
+                <button
+                  onClick={() => setQty(qty + 1)}
+                  className="w-10 h-10 flex items-center justify-center hover:bg-card rounded-2xl transition-all font-black text-xl active:scale-90"
+                >
+                  <Plus className="h-5 w-5" />
+                </button>
               </div>
+
               <button
-                onClick={() => { for (let i = 0; i < qty; i++) addItem(product); }}
-                className="flex-1 py-3.5 bg-primary text-primary-foreground rounded-2xl font-display font-semibold text-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                onClick={() => { for (let i = 0; i < qty; i++) addItem({ ...product, category: product.category.name }); }}
+                className="flex-1 w-full py-5 bg-primary text-primary-foreground rounded-3xl font-display font-black text-xl hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-2xl shadow-primary/30"
               >
-                <ShoppingCart className="h-5 w-5" /> Add to Cart
+                <ShoppingCart className="h-6 w-6" /> ADD TO JOYBAG
               </button>
             </div>
           </motion.div>
         </div>
 
         {related.length > 0 && (
-          <section className="mt-16">
-            <h2 className="text-2xl font-display font-bold text-foreground mb-6">You May Also Like</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-              {related.map((p) => <ProductCard key={p.id} product={p} />)}
+          <section className="mt-24">
+            <h2 className="text-3xl font-display font-black text-foreground mb-10 tracking-tight">MORE MAGIC DISCOVERIES</h2>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 md:gap-10">
+              {related.map((p) => <ProductCard key={p.id} product={{ ...p, category: p.category.name }} />)}
             </div>
           </section>
         )}
