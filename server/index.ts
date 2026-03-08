@@ -68,6 +68,32 @@ app.use(cookieParser());
 
 // --- AUTH ROUTES ---
 
+app.get('/api/test', (req, res) => {
+    res.json({ message: "JoyfulCart Server is Alive!", timestamp: new Date().toISOString() });
+});
+
+// --- AUTH ROUTES ---
+
+// Get User Profile
+app.get('/api/auth/me', async (req, res) => {
+    const token = req.cookies.token;
+    if (!token) return res.json({ user: null });
+
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
+        const user = await prisma.user.findUnique({ where: { id: decoded.id } });
+        if (!user) {
+            res.clearCookie('token');
+            return res.json({ user: null });
+        }
+
+        res.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+    } catch (error) {
+        res.clearCookie('token');
+        res.json({ user: null });
+    }
+});
+
 // Register
 app.post('/api/auth/register', async (req, res) => {
     const { email, password, name } = req.body;
@@ -120,13 +146,20 @@ app.post('/api/auth/logout', (req, res) => {
 
 // Create new order
 app.post('/api/orders', authenticateToken, async (req: any, res) => {
-    const { total, items } = req.body; // items: [{ productId, quantity, price }]
+    const { total, items, customerAddress, paymentMethod } = req.body; // items: [{ productId, quantity, price }]
     try {
         const order = await prisma.order.create({
             data: {
                 userId: req.user.id,
                 total: parseFloat(total),
                 status: 'PENDING',
+                customerName: customerAddress?.name,
+                customerPhone: customerAddress?.phone,
+                streetAddress: customerAddress?.street,
+                city: customerAddress?.city,
+                state: customerAddress?.state,
+                pincode: customerAddress?.pincode,
+                paymentMethod: paymentMethod,
                 items: {
                     create: items.map((item: any) => ({
                         productId: item.productId,
@@ -135,7 +168,7 @@ app.post('/api/orders', authenticateToken, async (req: any, res) => {
                     }))
                 }
             },
-            include: { items: true }
+            include: { items: { include: { product: true } } }
         });
         res.status(201).json(order);
     } catch (error) {
@@ -155,22 +188,6 @@ app.get('/api/orders', authenticateToken, async (req: any, res) => {
         res.json(orders);
     } catch (error) {
         res.status(500).json({ message: 'Server error' });
-    }
-});
-
-// Get User Profile
-app.get('/api/auth/me', async (req, res) => {
-    const token = req.cookies.token;
-    if (!token) return res.status(401).json({ message: 'Not authenticated' });
-
-    try {
-        const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
-        const user = await prisma.user.findUnique({ where: { id: decoded.id } });
-        if (!user) return res.status(404).json({ message: 'User not found' });
-
-        res.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role } });
-    } catch (error) {
-        res.status(401).json({ message: 'Invalid token' });
     }
 });
 
@@ -389,6 +406,11 @@ app.get('/api/admin/analytics', authenticateToken, authorizeRoles(['ADMIN']), as
     } catch (error) {
         res.status(500).json({ message: 'Server error' });
     }
+});
+
+// Catch-all for 404s
+app.use((req, res) => {
+    res.status(404).json({ message: `Route ${req.method} ${req.url} not found` });
 });
 
 app.listen(PORT, () => {

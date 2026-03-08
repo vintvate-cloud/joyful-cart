@@ -60,8 +60,15 @@ model Order {
   total     Float
   status    OrderStatus @default(PENDING)
   items     OrderItem[]
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  customerName    String?
+  customerPhone   String?
+  streetAddress   String?
+  city            String?
+  state           String?
+  pincode         String?
+  paymentMethod   String?     // "card", "upi", "cod"
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 }
 
 enum OrderStatus {

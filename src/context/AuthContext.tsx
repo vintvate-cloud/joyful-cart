@@ -30,7 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
             });
-            if (!res.ok) throw new Error('Not authenticated');
+            if (!res.ok) return null;
             return res.json();
         },
         retry: false,

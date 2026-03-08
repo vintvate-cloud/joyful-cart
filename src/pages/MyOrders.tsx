@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Package, Clock, CheckCircle2, Truck, AlertCircle, ShoppingBag, ArrowLeft, Loader2, IndianRupee } from "lucide-react";
+import { Package, Clock, CheckCircle2, Truck, AlertCircle, ShoppingBag, ArrowLeft, Loader2, IndianRupee, FileText } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
@@ -7,7 +7,8 @@ import Footer from "@/components/layout/Footer";
 import CartDrawer from "@/components/cart/CartDrawer";
 import { format } from "date-fns";
 import { useAuth } from "@/context/AuthContext";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import OrderInvoice from "@/components/orders/OrderInvoice";
 
 interface OrderItem {
     id: string;
@@ -22,6 +23,13 @@ interface Order {
     status: 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
     items: OrderItem[];
     createdAt: string;
+    customerName?: string | null;
+    customerPhone?: string | null;
+    streetAddress?: string | null;
+    city?: string | null;
+    state?: string | null;
+    pincode?: string | null;
+    paymentMethod?: string | null;
 }
 
 const statusConfigs = {
@@ -37,6 +45,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 const MyOrders = () => {
     const navigate = useNavigate();
     const { user, isLoading: authLoading } = useAuth();
+    const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
     useEffect(() => {
         if (!authLoading && !user) navigate("/login");
@@ -134,8 +143,11 @@ const MyOrders = () => {
                                                     {order.total.toFixed(2)}
                                                 </p>
                                             </div>
-                                            <button className="px-6 py-3 bg-accent hover:bg-primary hover:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all">
-                                                Order Details
+                                            <button
+                                                onClick={() => setSelectedOrder(order)}
+                                                className="px-6 py-3 bg-accent hover:bg-primary hover:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2"
+                                            >
+                                                <FileText className="h-4 w-4" /> View Invoice
                                             </button>
                                         </div>
                                     </div>
@@ -154,6 +166,15 @@ const MyOrders = () => {
                     )}
                 </div>
             </main>
+
+            <AnimatePresence>
+                {selectedOrder && (
+                    <OrderInvoice
+                        order={selectedOrder}
+                        onClose={() => setSelectedOrder(null)}
+                    />
+                )}
+            </AnimatePresence>
 
             <Footer />
         </div>
