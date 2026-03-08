@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import Header from "@/components/layout/Header";
@@ -32,6 +32,16 @@ const ShopPage = () => {
   const [ageGroup, setAgeGroup] = useState("All");
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 500]);
   const [showFilters, setShowFilters] = useState(false);
+
+  // Update category state when search param changes (e.g. from navbar click)
+  useEffect(() => {
+    const cat = searchParams.get("category");
+    if (cat) {
+      setCategory(cat);
+    } else {
+      setCategory("All");
+    }
+  }, [searchParams]);
 
   const { data: products = [], isLoading } = useQuery<Product[]>({
     queryKey: ['products'],

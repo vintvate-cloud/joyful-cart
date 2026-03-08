@@ -5,15 +5,9 @@ import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/hooks/useTheme";
 import { motion, AnimatePresence } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
 
-const navItems = [
-  { label: "Home", to: "/" },
-  { label: "Shop All", to: "/shop" },
-  { label: "Toys", to: "/shop?category=Toys" },
-  { label: "Clothes", to: "/shop?category=Clothes" },
-  { label: "RC Cars", to: "/shop?category=RC Cars" },
-  { label: "Books", to: "/shop?category=Books" },
-];
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 const Header = () => {
   const { setIsOpen, itemCount } = useCart();
@@ -22,6 +16,27 @@ const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
+
+  const { data: categories } = useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const res = await fetch(`${API_URL}/categories`);
+      if (!res.ok) throw new Error('Failed to fetch categories');
+      return res.json();
+    }
+  });
+
+  const staticNavItems = [
+    { label: "Home", to: "/" },
+    { label: "Shop All", to: "/shop" },
+  ];
+
+  const dynamicNavItems = categories?.map((cat: any) => ({
+    label: cat.name,
+    to: `/shop?category=${encodeURIComponent(cat.name)}`
+  })) || [];
+
+  const navItems = [...staticNavItems, ...dynamicNavItems];
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,9 +115,9 @@ const Header = () => {
       </div>
 
       <nav className="hidden md:block border-t border-border/50">
-        <div className="container mx-auto px-4 flex items-center gap-1 py-1">
+        <div className="container mx-auto px-4 flex items-center gap-1 py-1 overflow-x-auto custom-scrollbar">
           {navItems.map((item) => (
-            <Link key={item.label} to={item.to} className="px-4 py-2.5 text-xs lg:text-sm font-display font-bold text-foreground/70 hover:text-primary hover:bg-primary/5 rounded-2xl transition-all uppercase tracking-wider">
+            <Link key={item.label} to={item.to} className="whitespace-nowrap px-4 py-2.5 text-xs lg:text-sm font-display font-bold text-foreground/70 hover:text-primary hover:bg-primary/5 rounded-2xl transition-all uppercase tracking-wider">
               {item.label}
             </Link>
           ))}
@@ -132,7 +147,7 @@ const Header = () => {
                     <Link to="/profile" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-base font-display font-bold text-primary bg-primary/5 rounded-2xl transition-all">
                       My Profile
                     </Link>
-                    <Link to="/my-orders" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-base font-display font-bold text-primary bg-primary/5 rounded-2xl transition-all">
+                    <Link to="/profile?tab=orders" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-base font-display font-bold text-primary bg-primary/5 rounded-2xl transition-all">
                       My Orders
                     </Link>
                   </>
