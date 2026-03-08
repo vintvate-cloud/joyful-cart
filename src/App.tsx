@@ -15,6 +15,7 @@ import AdminProductsPage from "./pages/admin/Products";
 import AdminOrdersPage from "./pages/admin/Orders";
 import AdminCustomersPage from "./pages/admin/Customers";
 import AdminAnalyticsPage from "./pages/admin/Analytics";
+import AdminCategoriesPage from "./pages/admin/Categories";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
@@ -47,6 +48,7 @@ const App = () => (
                 <Route path="/admin/orders" element={<AdminOrdersPage />} />
                 <Route path="/admin/customers" element={<AdminCustomersPage />} />
                 <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
+                <Route path="/admin/categories" element={<AdminCategoriesPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/signup" element={<SignupPage />} />
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />

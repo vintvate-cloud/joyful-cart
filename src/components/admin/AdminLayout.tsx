@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
-import { BarChart3, Package, ShoppingCart, Users, TrendingUp, LogOut, Menu, X, Home, Sun, Moon } from "lucide-react";
+import { BarChart3, Package, ShoppingCart, Users, TrendingUp, LogOut, Menu, X, Home, Sun, Moon, LayoutGrid } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/hooks/useTheme";
@@ -38,6 +38,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     const menuItems = [
         { icon: BarChart3, label: "Dashboard", href: "/admin/dashboard" },
         { icon: Package, label: "Products", href: "/admin/products" },
+        { icon: LayoutGrid, label: "Categories", href: "/admin/categories" },
         { icon: ShoppingCart, label: "Orders", href: "/admin/orders" },
         { icon: Users, label: "Customers", href: "/admin/customers" },
         { icon: TrendingUp, label: "Analytics", href: "/admin/analytics" },

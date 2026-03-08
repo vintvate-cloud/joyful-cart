@@ -125,7 +125,7 @@ const CheckoutPage = () => {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link to={`/orders`} className="w-full sm:w-auto px-8 py-4 bg-primary text-primary-foreground rounded-[2rem] font-display font-black text-sm hover:scale-105 transition-all shadow-xl shadow-primary/20">
+            <Link to={`/profile?tab=orders`} className="w-full sm:w-auto px-8 py-4 bg-primary text-primary-foreground rounded-[2rem] font-display font-black text-sm hover:scale-105 transition-all shadow-xl shadow-primary/20">
               Track Order
             </Link>
             <button

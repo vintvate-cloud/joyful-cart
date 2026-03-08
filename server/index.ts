@@ -222,8 +222,55 @@ app.get('/api/products/:id', async (req, res) => {
 // --- CATEGORY ROUTES ---
 app.get('/api/categories', async (req, res) => {
     try {
-        const categories = await prisma.category.findMany();
+        const categories = await prisma.category.findMany({
+            include: { _count: { select: { products: true } } }
+        });
         res.json(categories);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Create Category (Admin)
+app.post('/api/categories', authenticateToken, authorizeRoles(['ADMIN']), async (req, res) => {
+    const { name, icon, color } = req.body;
+    try {
+        const category = await prisma.category.create({
+            data: { name, icon, color }
+        });
+        res.status(201).json(category);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Update Category (Admin)
+app.put('/api/categories/:id', authenticateToken, authorizeRoles(['ADMIN']), async (req, res) => {
+    const { name, icon, color } = req.body;
+    try {
+        const category = await prisma.category.update({
+            where: { id: req.params.id },
+            data: { name, icon, color }
+        });
+        res.json(category);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Delete Category (Admin)
+app.delete('/api/categories/:id', authenticateToken, authorizeRoles(['ADMIN']), async (req, res) => {
+    try {
+        const productCount = await prisma.product.count({
+            where: { categoryId: req.params.id }
+        });
+
+        if (productCount > 0) {
+            return res.status(400).json({ message: 'Cannot delete category with associated products' });
+        }
+
+        await prisma.category.delete({ where: { id: req.params.id } });
+        res.json({ message: 'Category deleted' });
     } catch (error) {
         res.status(500).json({ message: 'Server error' });
     }

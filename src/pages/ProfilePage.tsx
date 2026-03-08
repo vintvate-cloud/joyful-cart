@@ -3,7 +3,7 @@ import { User, Mail, MapPin, Phone, Package, Heart, Settings, LogOut, Loader2, C
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import CartDrawer from "@/components/cart/CartDrawer";
@@ -12,9 +12,19 @@ import { useAuth } from "@/context/AuthContext";
 
 const ProfilePage = () => {
   const { user, isLoading, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState("profile");
+  const { search } = useLocation();
+  const queryParams = new URLSearchParams(search);
+  const initialTab = queryParams.get("tab") || "profile";
+
+  const [activeTab, setActiveTab] = useState(initialTab);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Update active tab if URL changes
+    const currentTab = queryParams.get("tab");
+    if (currentTab) setActiveTab(currentTab);
+  }, [search]);
 
   useEffect(() => {
     if (!isLoading && !user) navigate("/login");
