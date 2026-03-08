@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { BarChart3, Package, ShoppingCart, Users, Plus, Eye, Edit, Trash2, X, TrendingUp, DollarSign, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 
 interface Product {
   id: string;
@@ -27,9 +29,30 @@ interface Stats {
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 const AdminDashboard = () => {
+  const { user, isLoading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
   const [activeTab, setActiveTab] = useState<"products" | "orders">("products");
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!authLoading && (!user || user.role !== "ADMIN")) {
+      navigate("/admin");
+    }
+  }, [user, authLoading, navigate]);
+
+  if (authLoading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user || user.role !== "ADMIN") {
+    return null;
+  }
+
 
   const { data: stats, isLoading: statsLoading } = useQuery<Stats>({
     queryKey: ['admin-stats'],

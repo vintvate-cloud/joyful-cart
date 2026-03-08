@@ -48,12 +48,26 @@ async function main() {
         }
     })
 
+    // Seed Admin User
+    const bcrypt = await import('bcryptjs');
+    const hashedPassword = await bcrypt.default.hash('admin123', 10);
+
+    await prisma.user.create({
+        data: {
+            email: 'admin@joyfulcart.com',
+            password: hashedPassword,
+            name: 'System Admin',
+            role: 'ADMIN'
+        }
+    });
+
     console.log('Seeding finished.')
 }
 
 main()
     .catch((e) => {
         console.error(e)
+        // @ts-ignore
         process.exit(1)
     })
     .finally(async () => {
