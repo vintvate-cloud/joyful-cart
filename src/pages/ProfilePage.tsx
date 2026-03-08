@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
-import { User, Mail, MapPin, Phone, Package, Heart, Settings, LogOut } from "lucide-react";
+import { User, Mail, MapPin, Phone, Package, Heart, Settings, LogOut, Loader2, Calendar } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { format } from "date-fns";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
@@ -37,9 +39,23 @@ const ProfilePage = () => {
     { id: "settings", label: "Settings", icon: Settings },
   ];
 
-  const mockOrders = [
-    { id: "ORD-001", date: "2024-01-15", total: 89.97, status: "Delivered", items: 3 },
-  ];
+  const { data: orders = [], isLoading: ordersLoading } = useQuery({
+    queryKey: ['my-orders'],
+    queryFn: async () => {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+      const res = await fetch(`${API_URL}/orders`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Order fetch failed');
+      return res.json();
+    }
+  });
+
+  const statusColors: any = {
+    PENDING: "bg-amber-500/10 text-amber-500",
+    PROCESSING: "bg-blue-500/10 text-blue-500",
+    SHIPPED: "bg-purple-500/10 text-purple-500",
+    DELIVERED: "bg-emerald-500/10 text-emerald-500",
+    CANCELLED: "bg-muted text-muted-foreground",
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -112,25 +128,41 @@ const ProfilePage = () => {
 
           {activeTab === "orders" && (
             <div className="space-y-4">
-              {mockOrders.map((order) => (
-                <div key={order.id} className="bg-card rounded-2xl border border-border p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-                  <div>
-                    <p className="font-display font-bold text-foreground">{order.id}</p>
-                    <p className="text-sm text-muted-foreground font-body">{order.date} • {order.items} items</p>
-                  </div>
+              {ordersLoading ? (
+                <div className="flex flex-col items-center py-12 gap-3 text-muted-foreground">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                  <p className="font-display font-bold">Unboxing your history...</p>
+                </div>
+              ) : orders.map((order: any) => (
+                <div key={order.id} className="bg-card rounded-3xl border border-border p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 group hover:border-primary/30 transition-all">
                   <div className="flex items-center gap-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-body font-semibold ${order.status === "Delivered" ? "bg-success/10 text-success" :
-                        order.status === "Shipped" ? "bg-primary/10 text-primary" :
-                          "bg-secondary/10 text-secondary-foreground"
-                      }`}>{order.status}</span>
-                    <span className="font-display font-bold text-foreground">${order.total.toFixed(2)}</span>
+                    <div className="w-12 h-12 bg-primary/5 rounded-2xl flex items-center justify-center text-xl">📦</div>
+                    <div>
+                      <p className="font-display font-black text-foreground">#{order.id.slice(-6).toUpperCase()}</p>
+                      <p className="text-[10px] font-display font-black text-muted-foreground uppercase tracking-widest flex items-center gap-1.5 mt-0.5">
+                        <Calendar className="h-3 w-3" /> {format(new Date(order.createdAt), "MMM d, yyyy")}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between w-full md:w-auto md:gap-8">
+                    <div className="text-right hidden sm:block">
+                      <p className="font-display font-black text-foreground">₹{order.total.toFixed(2)}</p>
+                      <p className="text-[10px] font-display font-black text-muted-foreground uppercase tracking-widest">{order.items?.length || 0} toys</p>
+                    </div>
+                    <div className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest ${statusColors[order.status] || 'bg-muted text-muted-foreground'}`}>
+                      {order.status}
+                    </div>
                   </div>
                 </div>
               ))}
-              {mockOrders.length === 0 && (
-                <div className="bg-card rounded-3xl border border-border p-12 text-center">
-                  <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-20" />
-                  <p className="font-display font-semibold text-muted-foreground">No orders yet. Let's start shopping! 🛍️</p>
+              {!ordersLoading && orders.length === 0 && (
+                <div className="bg-card rounded-[2.5rem] border border-border p-16 text-center">
+                  <div className="w-20 h-20 bg-muted rounded-[2rem] flex items-center justify-center mx-auto mb-6 text-3xl opacity-50">📭</div>
+                  <h3 className="text-xl font-display font-black text-foreground mb-2">The Toy Box is Empty</h3>
+                  <p className="text-muted-foreground font-body max-w-xs mx-auto mb-8">Your order history is a blank canvas. Let's paint it with some magical toys! ✨</p>
+                  <button onClick={() => navigate('/shop')} className="px-8 py-3 bg-primary text-white rounded-2xl font-display font-black text-sm hover:scale-105 transition-all shadow-lg shadow-primary/20">
+                    Explore Shop
+                  </button>
                 </div>
               )}
             </div>

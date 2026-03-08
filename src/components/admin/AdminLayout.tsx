@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
-import { BarChart3, Package, ShoppingCart, Users, TrendingUp, LogOut, Menu, X, Home } from "lucide-react";
+import { BarChart3, Package, ShoppingCart, Users, TrendingUp, LogOut, Menu, X, Home, Sun, Moon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
+import { useTheme } from "@/hooks/useTheme";
 import { Loader2 } from "lucide-react";
 
 interface AdminLayoutProps {
@@ -11,6 +12,7 @@ interface AdminLayoutProps {
 
 const AdminLayout = ({ children }: AdminLayoutProps) => {
     const { user, isLoading: authLoading, logout } = useAuth();
+    const { theme, toggleTheme } = useTheme();
     const navigate = useNavigate();
     const location = useLocation();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -42,7 +44,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     ];
 
     return (
-        <div className="min-h-screen bg-background text-foreground flex dark">
+        <div className="min-h-screen bg-background text-foreground flex">
             {/* Desktop Sidebar */}
             <aside className="hidden md:flex w-72 bg-card border-r border-border flex-col sticky top-0 h-screen">
                 <div className="p-8">
@@ -50,7 +52,9 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                         <div className="w-10 h-10 bg-primary/10 rounded-2xl flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                             <span className="text-2xl">🧸</span>
                         </div>
-                        <span className="text-2xl font-display font-black text-foreground tracking-tight">JoyBox <span className="text-[10px] uppercase font-black text-primary bg-primary/10 px-2 py-0.5 rounded-full ml-1">Admin</span></span>
+                        <span className="text-2xl font-display font-black tracking-tight text-primary">
+                            Joyful<span className="text-secondary">Cart</span>
+                        </span>
                     </Link>
 
                     <nav className="space-y-1.5">
@@ -73,8 +77,22 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                     </nav>
                 </div>
 
-                <div className="mt-auto p-6 border-t border-border">
-                    <Link to="/" className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-display font-bold text-muted-foreground hover:bg-accent hover:text-accent-foreground mb-2">
+                <div className="mt-auto p-6 border-t border-border space-y-2">
+                    <button
+                        onClick={toggleTheme}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-display font-bold text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-all"
+                    >
+                        {theme === "dark" ? (
+                            <>
+                                <Sun className="h-5 w-5" /> Light Mode
+                            </>
+                        ) : (
+                            <>
+                                <Moon className="h-5 w-5" /> Dark Mode
+                            </>
+                        )}
+                    </button>
+                    <Link to="/" className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-display font-bold text-muted-foreground hover:bg-accent hover:text-accent-foreground">
                         <Home className="h-5 w-5 text-muted-foreground/60" /> Back to Store
                     </Link>
                     <button
@@ -88,10 +106,15 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
 
             {/* Mobile Header */}
             <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-card border-b border-border px-4 flex items-center justify-between z-40">
-                <span className="text-xl font-display font-black text-foreground">JoyBox <span className="text-[10px] text-primary">Admin</span></span>
-                <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-muted-foreground">
-                    {isMobileMenuOpen ? <X /> : <Menu />}
-                </button>
+                <span className="text-xl font-display font-black text-primary">Joyful<span className="text-secondary">Cart</span> <span className="text-[10px] text-primary">Admin</span></span>
+                <div className="flex items-center gap-2">
+                    <button onClick={toggleTheme} className="p-2 text-muted-foreground">
+                        {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                    </button>
+                    <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-muted-foreground">
+                        {isMobileMenuOpen ? <X /> : <Menu />}
+                    </button>
+                </div>
             </div>
 
             {/* Mobile Menu Overlay */}
@@ -104,8 +127,8 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                         className="md:hidden fixed inset-0 bg-card z-50 p-6 flex flex-col"
                     >
                         <div className="flex items-center justify-between mb-8">
-                            <span className="text-2xl font-display font-black text-foreground">JoyBox <span className="text-[10px] text-primary">Admin</span></span>
-                            <button onClick={() => setIsMobileMenuOpen(false)} className="p-2"><X /></button>
+                            <span className="text-2xl font-display font-black text-primary">Joyful<span className="text-secondary">Cart</span> <span className="text-[10px] text-primary">Admin</span></span>
+                            <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-foreground"><X /></button>
                         </div>
                         <nav className="space-y-4">
                             {menuItems.map((item) => (
@@ -131,7 +154,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
             </AnimatePresence>
 
             {/* Main Content */}
-            <main className="flex-1 w-full pt-16 md:pt-0 overflow-x-hidden bg-background">
+            <main className="flex-1 w-full pt-16 md:pt-0 overflow-x-hidden bg-background custom-scrollbar scroll-smooth">
                 {children}
             </main>
         </div>

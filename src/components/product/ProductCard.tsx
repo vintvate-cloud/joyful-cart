@@ -34,9 +34,9 @@ const ProductCard = ({ product }: { product: Product }) => {
         <div className="absolute top-4 left-4 flex flex-col gap-2">
           {product.badge && (
             <span className={`px-4 py-1.5 rounded-full text-[10px] font-display font-black uppercase tracking-widest shadow-lg ${product.badge === "Sale" ? "bg-accent text-accent-foreground" :
-                product.badge === "New" ? "bg-success text-success-foreground" :
-                  product.badge === "Hot" ? "bg-toy-red text-accent-foreground" :
-                    "bg-primary text-primary-foreground"
+              product.badge === "New" ? "bg-success text-success-foreground" :
+                product.badge === "Hot" ? "bg-toy-red text-accent-foreground" :
+                  "bg-primary text-primary-foreground"
               }`}>
               {product.badge}
             </span>
@@ -66,9 +66,9 @@ const ProductCard = ({ product }: { product: Product }) => {
 
         <div className="flex items-center justify-between mt-auto pt-2">
           <div className="flex flex-col">
-            <span className="text-2xl font-display font-black text-primary">${product.price}</span>
+            <span className="text-2xl font-display font-black text-primary">₹{product.price}</span>
             {product.originalPrice && (
-              <span className="text-xs text-muted-foreground line-through font-body font-bold opacity-40">${product.originalPrice}</span>
+              <span className="text-xs text-muted-foreground line-through font-body font-bold opacity-40">₹{product.originalPrice}</span>
             )}
           </div>
           <button

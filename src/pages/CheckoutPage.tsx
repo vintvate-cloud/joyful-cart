@@ -9,10 +9,11 @@ import { useCart } from "@/context/CartContext";
 type PaymentMethod = "card" | "upi" | "cod";
 
 const CheckoutPage = () => {
-  const { items, total } = useCart();
+  const { items, total, clearCart } = useCart();
   const [step, setStep] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
   const [orderPlaced, setOrderPlaced] = useState(false);
+  const [isPlacing, setIsPlacing] = useState(false);
 
   // Form states
   const [address, setAddress] = useState({ name: "", phone: "", street: "", city: "", state: "", pincode: "" });
@@ -23,9 +24,35 @@ const CheckoutPage = () => {
   const shipping = total > 499 ? 0 : 49;
   const grandTotal = total + codCharge + shipping;
 
-  const handlePlaceOrder = (e: React.FormEvent) => {
+  const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    setOrderPlaced(true);
+    setIsPlacing(true);
+
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+      const res = await fetch(`${API_URL}/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          total: grandTotal,
+          items: items.map(item => ({
+            productId: item.product.id,
+            quantity: item.quantity,
+            price: item.product.price
+          }))
+        }),
+        credentials: 'include'
+      });
+
+      if (!res.ok) throw new Error('Failed to place order');
+
+      setOrderPlaced(true);
+      if (typeof clearCart === 'function') clearCart();
+    } catch (error) {
+      console.error('Checkout Error:', error);
+    } finally {
+      setIsPlacing(false);
+    }
   };
 
   if (items.length === 0 && !orderPlaced) {
@@ -128,9 +155,8 @@ const CheckoutPage = () => {
                         <button
                           key={pm.id}
                           onClick={() => setPaymentMethod(pm.id)}
-                          className={`p-4 rounded-2xl border-2 text-left transition-all ${
-                            paymentMethod === pm.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
-                          }`}
+                          className={`p-4 rounded-2xl border-2 text-left transition-all ${paymentMethod === pm.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
+                            }`}
                         >
                           <pm.icon className={`h-5 w-5 mb-2 ${paymentMethod === pm.id ? "text-primary" : "text-muted-foreground"}`} />
                           <p className="font-display font-bold text-sm text-foreground">{pm.label}</p>

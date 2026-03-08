@@ -52,7 +52,7 @@ const CartDrawer = () => {
                       <img src={item.product.image} alt={item.product.title} className="w-20 h-20 rounded-xl object-cover" />
                       <div className="flex-1 min-w-0">
                         <h4 className="font-display font-semibold text-sm text-card-foreground truncate">{item.product.title}</h4>
-                        <p className="text-primary font-bold font-display mt-1">${item.product.price}</p>
+                        <p className="text-primary font-bold font-display mt-1">₹{item.product.price}</p>
                         <div className="flex items-center gap-2 mt-2">
                           <button onClick={() => updateQuantity(item.product.id, item.quantity - 1)} className="p-1 rounded-lg bg-card hover:bg-border transition-colors">
                             <Minus className="h-3 w-3" />
@@ -72,7 +72,7 @@ const CartDrawer = () => {
                 <div className="p-5 border-t border-border space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="font-body font-semibold text-card-foreground">Total</span>
-                    <span className="text-2xl font-display font-bold text-primary">${total.toFixed(2)}</span>
+                    <span className="text-2xl font-display font-bold text-primary">₹{total.toFixed(2)}</span>
                   </div>
                   <Link to="/checkout" onClick={() => setIsOpen(false)} className="block w-full py-3.5 bg-primary text-primary-foreground rounded-2xl font-display font-semibold text-lg hover:opacity-90 transition-opacity text-center">
                     Checkout

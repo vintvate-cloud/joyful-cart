@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp, DollarSign, ShoppingCart, Loader2, Sparkles, Target, Zap } from "lucide-react";
+import { TrendingUp, IndianRupee, ShoppingCart, Loader2, Sparkles, Target, Zap } from "lucide-react";
 import { motion } from "framer-motion";
 import AdminLayout from "@/components/admin/AdminLayout";
 
@@ -55,7 +55,7 @@ const Analytics = () => {
                                     <p className="text-[10px] text-muted-foreground/60 font-display font-bold uppercase tracking-widest">Monthly sales performance</p>
                                 </div>
                                 <div className="p-4 bg-primary/10 rounded-2xl">
-                                    <DollarSign className="h-6 w-6 text-primary" />
+                                    <IndianRupee className="h-6 w-6 text-primary" />
                                 </div>
                             </div>
                             <div className="h-[400px] w-full">
@@ -80,11 +80,12 @@ const Analytics = () => {
                                             tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12, fontWeight: 'bold' }}
                                         />
                                         <Tooltip
+                                            formatter={(value: number) => [`₹${value.toLocaleString()}`, 'Revenue']}
                                             contentStyle={{
                                                 borderRadius: '24px',
                                                 border: 'none',
                                                 boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)',
-                                                fontFamily: 'Outfit, sans-serif'
+                                                fontFamily: 'Fredoka, sans-serif'
                                             }}
                                         />
                                         <Area type="monotone" dataKey="revenue" stroke="#4D96FF" strokeWidth={4} fillOpacity={1} fill="url(#colorRev)" />

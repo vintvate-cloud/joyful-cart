@@ -100,8 +100,8 @@ const ProductPage = () => {
             </div>
 
             <div className="flex items-baseline gap-4 mb-8">
-              <span className="text-5xl font-display font-black text-primary">${product.price}</span>
-              {product.originalPrice && <span className="text-2xl text-muted-foreground line-through font-body font-bold opacity-50">${product.originalPrice}</span>}
+              <span className="text-5xl font-display font-black text-primary">₹{product.price}</span>
+              {product.originalPrice && <span className="text-2xl text-muted-foreground line-through font-body font-bold opacity-50">₹{product.originalPrice}</span>}
             </div>
 
             <p className="text-muted-foreground font-body text-lg mb-10 leading-relaxed max-w-xl">{product.description}</p>

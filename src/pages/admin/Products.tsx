@@ -32,7 +32,43 @@ const Products = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [showModal, setShowModal] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const [uploading, setUploading] = useState(false);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const queryClient = useQueryClient();
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Reset and start uploading
+        setUploading(true);
+
+        // Show local preview immediately
+        const localUrl = URL.createObjectURL(file);
+        setPreviewUrl(localUrl);
+
+        try {
+            const formData = new FormData();
+            formData.append('image', file);
+
+            const res = await fetch(`${API_URL}/upload`, {
+                method: 'POST',
+                body: formData,
+                credentials: 'include'
+            });
+
+            if (!res.ok) throw new Error('Upload failed');
+
+            const data = await res.json();
+            setPreviewUrl(data.url); // Use the real Cloudinary URL now
+            toast.success("Image uploaded to Magic Cloud! ☁️");
+        } catch (error) {
+            toast.error("Cloud cast failed. Try again!");
+            setPreviewUrl(editingProduct?.image || null);
+        } finally {
+            setUploading(false);
+        }
+    };
 
     // Fetch Products
     const { data: products = [], isLoading } = useQuery<Product[]>({
@@ -93,7 +129,15 @@ const Products = () => {
 
     const handleEdit = (product: Product) => {
         setEditingProduct(product);
+        setPreviewUrl(product.image);
         setShowModal(true);
+    };
+
+    const handleCloseModal = () => {
+        setShowModal(false);
+        setEditingProduct(null);
+        setPreviewUrl(null);
+        setUploading(false);
     };
 
     return (
@@ -105,7 +149,7 @@ const Products = () => {
                         <p className="text-muted-foreground font-body font-medium text-center md:text-left">Manage every piece of joy in your warehouse 🧸</p>
                     </div>
                     <button
-                        onClick={() => { setEditingProduct(null); setShowModal(true); }}
+                        onClick={() => { setEditingProduct(null); setPreviewUrl(null); setShowModal(true); }}
                         className="flex items-center justify-center gap-2 px-8 py-4 bg-primary text-primary-foreground rounded-3xl font-display font-black text-sm hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-primary/30"
                     >
                         <Plus className="h-5 w-5" /> Add New Toy
@@ -171,8 +215,8 @@ const Products = () => {
                                             </td>
                                             <td className="p-6">
                                                 <div className="flex flex-col">
-                                                    <span className="font-display font-black text-foreground">${p.price}</span>
-                                                    {p.originalPrice && <span className="text-[10px] text-muted-foreground line-through">${p.originalPrice}</span>}
+                                                    <span className="font-display font-black text-foreground">₹{p.price}</span>
+                                                    {p.originalPrice && <span className="text-[10px] text-muted-foreground line-through">₹{p.originalPrice}</span>}
                                                 </div>
                                             </td>
                                             <td className="p-6">
@@ -209,20 +253,26 @@ const Products = () => {
             {/* Upsert Product Modal */}
             <AnimatePresence>
                 {showModal && (
-                    <>
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowModal(false)} className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50" />
+                    <div className="fixed inset-0 flex items-center justify-center p-4 md:p-6 z-[60]">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={handleCloseModal}
+                            className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+                        />
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl bg-card rounded-[2.5rem] shadow-2xl z-50 p-10 border border-border max-h-[90vh] overflow-y-auto custom-scrollbar"
+                            className="relative w-full max-w-2xl bg-card rounded-[2.5rem] shadow-2xl p-6 md:p-10 border border-border max-h-[90vh] overflow-y-auto custom-scrollbar"
                         >
                             <div className="flex items-center justify-between mb-8">
                                 <div>
                                     <h2 className="text-3xl font-display font-black text-foreground tracking-tight">{editingProduct ? "Refine Treasure ✨" : "New Treasure 🎁"}</h2>
                                     <p className="text-muted-foreground font-body text-sm font-medium">Every toy has a magical story to tell.</p>
                                 </div>
-                                <button onClick={() => setShowModal(false)} className="p-4 bg-accent rounded-2xl hover:bg-red-400/10 hover:text-red-400 transition-all active:scale-90"><X className="h-6 w-6" /></button>
+                                <button onClick={handleCloseModal} className="p-4 bg-accent rounded-2xl hover:bg-red-400/10 hover:text-red-400 transition-all active:scale-90"><X className="h-6 w-6" /></button>
                             </div>
 
                             <form onSubmit={(e) => {
@@ -232,6 +282,7 @@ const Products = () => {
 
                                 const data = {
                                     ...entries,
+                                    image: previewUrl || entries.image as string,
                                     price: parseFloat(entries.price as string),
                                     originalPrice: entries.originalPrice ? parseFloat(entries.originalPrice as string) : null,
                                     stock: parseInt(entries.stock as string) || 0,
@@ -246,14 +297,47 @@ const Products = () => {
                                         <input name="title" required defaultValue={editingProduct?.title} type="text" placeholder="e.g. Magical Unicorn Plus" className="w-full px-6 py-4 rounded-2xl bg-background border-2 border-transparent focus:border-primary/20 outline-none font-display font-bold text-foreground transition-all placeholder:text-muted-foreground/30" />
                                     </div>
                                     <div className="col-span-2">
-                                        <label className="block text-[10px] font-display font-black text-muted-foreground uppercase tracking-widest mb-2 ml-1">Main Image URL</label>
-                                        <div className="relative">
-                                            <ImageIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/30" />
-                                            <input name="image" required defaultValue={editingProduct?.image} type="text" placeholder="https://cloudinary.com/..." className="w-full pl-12 pr-6 py-4 rounded-2xl bg-background border-2 border-transparent focus:border-primary/20 outline-none font-display font-bold text-foreground transition-all text-xs placeholder:text-muted-foreground/30" />
+                                        <label className="block text-[10px] font-display font-black text-muted-foreground uppercase tracking-widest mb-2 ml-1">Magic Toy Image</label>
+                                        <div className="flex flex-col gap-4">
+                                            {previewUrl && (
+                                                <div className="relative w-full h-48 rounded-3xl overflow-hidden bg-accent border-2 border-border group/img">
+                                                    <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                                        <label htmlFor="imageUpload" className="cursor-pointer px-4 py-2 bg-white/20 backdrop-blur-md rounded-xl text-white font-display font-bold text-xs hover:bg-white/30 transition-all">CHANGE IMAGE</label>
+                                                    </div>
+                                                    {uploading && (
+                                                        <div className="absolute inset-0 bg-background/60 backdrop-blur-sm flex flex-col items-center justify-center gap-2">
+                                                            <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                                                            <p className="text-[10px] font-display font-black text-primary uppercase tracking-widest">Uploading...</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {!previewUrl && (
+                                                <label htmlFor="imageUpload" className={`w-full h-48 rounded-3xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 ${uploading ? 'pointer-events-none opacity-50' : ''}`}>
+                                                    <div className="p-4 bg-muted rounded-2xl">
+                                                        <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <p className="font-display font-bold text-sm text-foreground">Click to Upload Image</p>
+                                                        <p className="text-[10px] font-display font-black text-muted-foreground uppercase tracking-widest">PNG, JPG up to 5MB</p>
+                                                    </div>
+                                                </label>
+                                            )}
+                                            <input
+                                                id="imageUpload"
+                                                type="file"
+                                                accept="image/*"
+                                                className="hidden"
+                                                onChange={handleImageUpload}
+                                                disabled={uploading}
+                                            />
+                                            {/* Hidden fallback for form data if needed */}
+                                            <input type="hidden" name="image" value={previewUrl || ""} />
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-[10px] font-display font-black text-muted-foreground uppercase tracking-widest mb-2 ml-1">Price ($)</label>
+                                        <label className="block text-[10px] font-display font-black text-muted-foreground uppercase tracking-widest mb-2 ml-1">Price (₹)</label>
                                         <input name="price" required defaultValue={editingProduct?.price} type="number" step="0.01" placeholder="29.99" className="w-full px-6 py-4 rounded-2xl bg-background border-2 border-transparent focus:border-primary/20 outline-none font-display font-bold text-foreground transition-all placeholder:text-muted-foreground/30" />
                                     </div>
                                     <div>
@@ -300,7 +384,7 @@ const Products = () => {
                                 </button>
                             </form>
                         </motion.div>
-                    </>
+                    </div>
                 )}
             </AnimatePresence>
         </AdminLayout>

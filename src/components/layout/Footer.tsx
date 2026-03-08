@@ -1,53 +1,165 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { Facebook, Instagram, Twitter, Youtube, Mail, MapPin, Phone, Send, ArrowRight } from "lucide-react";
+import { motion } from "framer-motion";
 
 const Footer = () => {
   const { user } = useAuth();
+  const currentYear = new Date().getFullYear();
+
+  const footerLinks = {
+    shop: [
+      { name: "Toys", href: "/shop?category=Toys" },
+      { name: "Clothes", href: "/shop?category=Clothes" },
+      { name: "RC Cars", href: "/shop?category=RC Cars" },
+      { name: "Gifts", href: "/shop?category=Gifts" },
+      { name: "Books", href: "/shop?category=Books" },
+    ],
+    company: [
+      { name: "About Us", href: "/about" },
+      { name: "Blog", href: "/blog" },
+      { name: "My Account", href: user?.role === 'ADMIN' ? "/admin/dashboard" : "/profile" },
+      { name: "Login", href: "/login" },
+    ],
+    legal: [
+      { name: "Terms of Service", href: "/terms" },
+      { name: "Privacy Policy", href: "/privacy" },
+      { name: "Shipping Info", href: "/shipping" },
+      { name: "Returns", href: "/returns" },
+    ]
+  };
+
+  const socialLinks = [
+    { icon: Facebook, color: "hover:bg-blue-500", href: "#" },
+    { icon: Instagram, color: "hover:bg-pink-500", href: "#" },
+    { icon: Twitter, color: "hover:bg-sky-400", href: "#" },
+    { icon: Youtube, color: "hover:bg-red-500", href: "#" },
+  ];
 
   return (
-    <footer className="bg-foreground text-background/80 mt-16">
-      <div className="container mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-2xl">🧸</span>
-              <span className="text-xl font-display font-bold text-background">Toy<span className="text-secondary">Box</span></span>
-            </div>
-            <p className="text-sm text-background/60 font-body">Making childhood magical with quality toys and kids products since 2024.</p>
-          </div>
-          <div>
-            <h4 className="font-display font-semibold text-background mb-4">Shop</h4>
-            <div className="space-y-2">
-              {["Toys", "Clothes", "RC Cars", "Gifts", "Books"].map((item) => (
-                <Link key={item} to={`/shop?category=${item}`} className="block text-sm text-background/60 hover:text-secondary transition-colors font-body">{item}</Link>
+    <footer className="relative bg-card border-t border-border mt-24 pt-20 pb-10 overflow-hidden">
+      {/* Background Decorative Elements */}
+      <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 w-96 h-96 bg-accent/5 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="container mx-auto px-6 relative z-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-20">
+          {/* Brand Section */}
+          <div className="space-y-6">
+            <Link to="/" className="flex items-center gap-3 group">
+              <div className="w-12 h-12 bg-primary/10 rounded-[1.25rem] flex items-center justify-center group-hover:bg-primary/20 transition-all duration-500 group-hover:rotate-12">
+                <span className="text-3xl">🧸</span>
+              </div>
+              <span className="text-3xl font-display font-black tracking-tight text-primary">
+                Joyful<span className="text-secondary">Cart</span>
+              </span>
+            </Link>
+            <p className="text-muted-foreground font-body leading-relaxed max-w-sm">
+              We believe every toy has a magical story to tell. Join us in creating unforgettable childhood memories with our curated collection of treasures.
+            </p>
+            <div className="flex gap-4">
+              {socialLinks.map((social, i) => (
+                <motion.a
+                  key={i}
+                  whileHover={{ y: -5 }}
+                  href={social.href}
+                  className={`w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center text-foreground/60 transition-all duration-300 ${social.color} hover:text-white hover:shadow-lg`}
+                >
+                  <social.icon size={20} />
+                </motion.a>
               ))}
             </div>
           </div>
-          <div>
-            <h4 className="font-display font-semibold text-background mb-4">Company</h4>
-            <div className="space-y-2">
-              <Link to="/about" className="block text-sm text-background/60 hover:text-secondary transition-colors font-body">About Us</Link>
-              <Link to="/blog" className="block text-sm text-background/60 hover:text-secondary transition-colors font-body">Blog</Link>
-              <Link to={user?.role === 'ADMIN' ? "/admin/dashboard" : "/profile"} className="block text-sm text-background/60 hover:text-secondary transition-colors font-body">My Account</Link>
-              <Link to="/login" className="block text-sm text-background/60 hover:text-secondary transition-colors font-body">Login</Link>
-            </div>
-          </div>
-          <div>
-            <h4 className="font-display font-semibold text-background mb-4">Stay Connected</h4>
-            <p className="text-sm text-background/60 font-body mb-3">Subscribe for latest offers and new arrivals.</p>
-            <div className="flex gap-2">
-              <input type="email" placeholder="Your email" className="flex-1 px-4 py-2 rounded-xl bg-background/10 text-sm text-background placeholder:text-background/40 outline-none font-body" />
-              <button className="px-4 py-2 bg-secondary text-secondary-foreground rounded-xl text-sm font-semibold font-body hover:opacity-90 transition-opacity">Join</button>
-            </div>
-            <div className="flex gap-3 mt-4">
-              {["📘", "📸", "🐦", "📺"].map((icon, i) => (
-                <button key={i} className="text-xl hover:scale-110 transition-transform">{icon}</button>
+
+          {/* Quick Links */}
+          <div className="lg:pl-10">
+            <h4 className="text-lg font-display font-black text-foreground mb-8 flex items-center gap-2">
+              <span className="w-2 h-2 bg-primary rounded-full" />
+              Magical Shop
+            </h4>
+            <ul className="space-y-4">
+              {footerLinks.shop.map((link) => (
+                <li key={link.name}>
+                  <Link to={link.href} className="text-muted-foreground hover:text-primary font-body font-medium transition-colors flex items-center group">
+                    <ArrowRight size={14} className="mr-2 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+                    {link.name}
+                  </Link>
+                </li>
               ))}
+            </ul>
+          </div>
+
+          {/* Company Links */}
+          <div>
+            <h4 className="text-lg font-display font-black text-foreground mb-8 flex items-center gap-2">
+              <span className="w-2 h-2 bg-secondary rounded-full" />
+              Adventure
+            </h4>
+            <ul className="space-y-4">
+              {footerLinks.company.map((link) => (
+                <li key={link.name}>
+                  <Link to={link.href} className="text-muted-foreground hover:text-secondary font-body font-medium transition-colors flex items-center group">
+                    <ArrowRight size={14} className="mr-2 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+                    {link.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Newsletter Section */}
+          <div className="space-y-8">
+            <div>
+              <h4 className="text-lg font-display font-black text-foreground mb-4">Join the Magic!</h4>
+              <p className="text-muted-foreground font-body text-sm leading-relaxed mb-6">
+                Subscribe for exclusive offers, new arrivals, and a touch of magic in your inbox.
+              </p>
+              <div className="relative group">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/30 group-focus-within:text-primary transition-colors" size={20} />
+                <input
+                  type="email"
+                  placeholder="Enter your email"
+                  className="w-full bg-background border-2 border-transparent focus:border-primary/20 rounded-[1.25rem] py-4 pl-12 pr-12 text-foreground font-body font-medium outline-none transition-all placeholder:text-muted-foreground/30 shadow-none ring-0"
+                />
+                <button className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-primary text-white rounded-xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20">
+                  <Send size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-4">
+              <div className="flex items-center gap-3 text-sm text-muted-foreground group">
+                <div className="w-8 h-8 rounded-lg bg-background flex items-center justify-center group-hover:bg-primary/5 transition-colors">
+                  <Phone size={14} className="text-primary" />
+                </div>
+                <span className="font-body font-medium">+1 (555) 123-魔法</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-muted-foreground group">
+                <div className="w-8 h-8 rounded-lg bg-background flex items-center justify-center group-hover:bg-secondary/5 transition-colors">
+                  <MapPin size={14} className="text-secondary" />
+                </div>
+                <span className="font-body font-medium">123 Toy Street, Magic Valley</span>
+              </div>
             </div>
           </div>
         </div>
-        <div className="border-t border-background/10 mt-8 pt-6 text-center text-sm text-background/40 font-body">
-          © 2024 ToyBox. All rights reserved.
+
+        {/* Bottom Bar */}
+        <div className="pt-10 border-t border-border/50 flex flex-col md:flex-row justify-between items-center gap-6">
+          <p className="text-muted-foreground font-body text-sm font-medium">
+            © {currentYear} <span className="font-black text-foreground">JoyfulCart</span>. Crafted with ✨ and 🧸
+          </p>
+          <div className="flex gap-8">
+            {footerLinks.legal.map((link) => (
+              <Link
+                key={link.name}
+                to={link.href}
+                className="text-[10px] font-display font-black text-muted-foreground/40 uppercase tracking-widest hover:text-primary transition-colors"
+              >
+                {link.name}
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
     </footer>

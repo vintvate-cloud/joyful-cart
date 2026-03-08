@@ -40,8 +40,10 @@ const Orders = () => {
         queryKey: ['admin-orders'],
         queryFn: async () => {
             const res = await fetch(`${API_URL}/admin/orders`, { credentials: 'include' });
+            if (!res.ok) throw new Error('Failed to fetch orders');
             return res.json();
-        }
+        },
+        refetchInterval: 30000 // Real-time order queue tracking
     });
 
     const statusMutation = useMutation({
@@ -55,9 +57,10 @@ const Orders = () => {
             if (!res.ok) throw new Error('Failed to update status');
             return res.json();
         },
-        onSuccess: () => {
+        onSuccess: (updatedOrder) => {
             queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
-            toast.success("Order status updated!");
+            setSelectedOrder(updatedOrder); // Update detail panel immediately
+            toast.success(`Order status changed to ${updatedOrder.status}! ✨`);
         }
     });
 
@@ -106,7 +109,7 @@ const Orders = () => {
 
                                         <div className="flex items-center justify-between md:justify-end gap-6">
                                             <div className="text-right">
-                                                <p className="font-display font-black text-foreground">${order.total.toFixed(2)}</p>
+                                                <p className="font-display font-black text-foreground">₹{order.total.toFixed(2)}</p>
                                                 <p className="text-[10px] font-display font-black text-muted-foreground/60 uppercase tracking-widest">{order.user.name.split(' ')[0]}</p>
                                             </div>
                                             <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest ${statusConfigs[order.status].color}`}>
@@ -168,7 +171,7 @@ const Orders = () => {
                                                                 <p className="text-[10px] font-display font-bold text-muted-foreground/60">Qty: {item.quantity}</p>
                                                             </div>
                                                         </div>
-                                                        <p className="text-sm font-display font-black text-foreground">${(item.price * item.quantity).toFixed(2)}</p>
+                                                        <p className="text-sm font-display font-black text-foreground">₹{(item.price * item.quantity).toFixed(2)}</p>
                                                     </div>
                                                 ))}
                                             </div>
@@ -178,7 +181,7 @@ const Orders = () => {
                                     <div className="border-t border-border pt-6 space-y-4">
                                         <div className="flex justify-between items-center bg-primary p-6 rounded-3xl text-primary-foreground">
                                             <span className="text-[10px] font-display font-black uppercase tracking-widest opacity-60">Grand Total</span>
-                                            <span className="text-2xl font-display font-black">${selectedOrder.total.toFixed(2)}</span>
+                                            <span className="text-2xl font-display font-black">₹{selectedOrder.total.toFixed(2)}</span>
                                         </div>
 
                                         <div className="space-y-2">

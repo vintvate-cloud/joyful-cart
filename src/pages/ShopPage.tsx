@@ -92,7 +92,7 @@ const ShopPage = () => {
         <h3 className="font-display font-semibold text-sm text-foreground mb-3">Price Range</h3>
         <div className="flex items-center gap-2">
           <input type="range" min="0" max="500" value={priceRange[1]} onChange={(e) => setPriceRange([priceRange[0], Number(e.target.value)])} className="flex-1 accent-primary" />
-          <span className="text-sm font-body text-muted-foreground">Up to ${priceRange[1]}</span>
+          <span className="text-sm font-body text-muted-foreground">Up to ₹{priceRange[1]}</span>
         </div>
       </div>
     </div>

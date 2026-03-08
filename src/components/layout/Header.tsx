@@ -123,13 +123,20 @@ const Header = () => {
                 </Link>
               ))}
               {user ? (
-                <Link
-                  to={user.role === 'ADMIN' ? "/admin/dashboard" : "/profile"}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="block px-4 py-3 text-base font-display font-bold text-primary bg-primary/5 rounded-2xl transition-all"
-                >
-                  {user.role === 'ADMIN' ? "Admin Dashboard" : "My Profile"}
-                </Link>
+                user.role === 'ADMIN' ? (
+                  <Link to="/admin/dashboard" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-base font-display font-bold text-primary bg-primary/5 rounded-2xl transition-all">
+                    Admin Dashboard
+                  </Link>
+                ) : (
+                  <>
+                    <Link to="/profile" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-base font-display font-bold text-primary bg-primary/5 rounded-2xl transition-all">
+                      My Profile
+                    </Link>
+                    <Link to="/my-orders" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-base font-display font-bold text-primary bg-primary/5 rounded-2xl transition-all">
+                      My Orders
+                    </Link>
+                  </>
+                )
               ) : (
                 <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-base font-display font-bold text-primary bg-primary/5 rounded-2xl transition-all">
                   Login / Sign Up

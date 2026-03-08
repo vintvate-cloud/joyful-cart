@@ -5,6 +5,8 @@ import cookieParser from 'cookie-parser';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { v2 as cloudinary } from 'cloudinary';
+import multer from 'multer';
 
 dotenv.config();
 
@@ -12,6 +14,20 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 5001;
 const JWT_SECRET = process.env.JWT_SECRET || 'joyful_cart_secret';
+
+// Configure Cloudinary
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+// Configure Multer for memory storage
+const storage = multer.memoryStorage();
+const upload = multer({
+    storage,
+    limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+});
 
 // Middleware
 const authenticateToken = (req: any, res: any, next: any) => {
@@ -98,6 +114,48 @@ app.post('/api/auth/login', async (req, res) => {
 app.post('/api/auth/logout', (req, res) => {
     res.clearCookie('token');
     res.json({ message: 'Logged out' });
+});
+
+// --- USER ORDER ROUTES ---
+
+// Create new order
+app.post('/api/orders', authenticateToken, async (req: any, res) => {
+    const { total, items } = req.body; // items: [{ productId, quantity, price }]
+    try {
+        const order = await prisma.order.create({
+            data: {
+                userId: req.user.id,
+                total: parseFloat(total),
+                status: 'PENDING',
+                items: {
+                    create: items.map((item: any) => ({
+                        productId: item.productId,
+                        quantity: parseInt(item.quantity),
+                        price: parseFloat(item.price)
+                    }))
+                }
+            },
+            include: { items: true }
+        });
+        res.status(201).json(order);
+    } catch (error) {
+        console.error('Order Creation Error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Get user's orders
+app.get('/api/orders', authenticateToken, async (req: any, res) => {
+    try {
+        const orders = await prisma.order.findMany({
+            where: { userId: req.user.id },
+            include: { items: { include: { product: true } } },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json(orders);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
 });
 
 // Get User Profile
@@ -199,6 +257,29 @@ app.delete('/api/products/:id', authenticateToken, authorizeRoles(['ADMIN']), as
     }
 });
 
+// --- CLOUDINARY UPLOAD ROUTE ---
+app.post('/api/upload', authenticateToken, authorizeRoles(['ADMIN']), upload.single('image'), async (req: any, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: 'No file uploaded' });
+        }
+
+        // Convert buffer to data URI for Cloudinary
+        const b64 = Buffer.from(req.file.buffer).toString('base64');
+        const dataURI = "data:" + req.file.mimetype + ";base64," + b64;
+
+        const result = await cloudinary.uploader.upload(dataURI, {
+            resource_type: 'auto',
+            folder: 'joyful-cart-products'
+        });
+
+        res.json({ url: result.secure_url });
+    } catch (error) {
+        console.error('Upload Error:', error);
+        res.status(500).json({ message: 'Upload failed' });
+    }
+});
+
 // --- ADMIN ORDER ACTIONS ---
 
 // Get all orders
@@ -220,7 +301,8 @@ app.put('/api/admin/orders/:id', authenticateToken, authorizeRoles(['ADMIN']), a
     try {
         const order = await prisma.order.update({
             where: { id: req.params.id },
-            data: { status }
+            data: { status },
+            include: { user: true, items: { include: { product: true } } }
         });
         res.json(order);
     } catch (error) {
@@ -247,24 +329,31 @@ app.get('/api/admin/users', authenticateToken, authorizeRoles(['ADMIN']), async 
 
 app.get('/api/admin/stats', authenticateToken, authorizeRoles(['ADMIN']), async (req, res) => {
     try {
-        const totalUsers = await prisma.user.count();
-        const totalProducts = await prisma.product.count();
-        const totalOrders = await prisma.order.count();
-        const totalRevenue = await prisma.order.aggregate({
-            _sum: { total: true }
-        });
+        const [totalUsers, totalProducts, totalOrders, totalRevenue, recentOrders] = await Promise.all([
+            prisma.user.count(),
+            prisma.product.count(),
+            prisma.order.count(),
+            prisma.order.aggregate({ _sum: { total: true } }),
+            prisma.order.findMany({
+                take: 5,
+                orderBy: { createdAt: 'desc' },
+                include: { user: { select: { name: true } } }
+            })
+        ]);
 
         res.json({
             totalUsers,
             totalProducts,
             totalOrders,
             totalRevenue: totalRevenue._sum.total || 0,
-            revenueChange: "+12.5%", // Mocking changes
+            recentOrders,
+            revenueChange: "+12.5%", // These could be calculated by comparing with last month
             ordersChange: "+8.2%",
-            productsChange: "+3",
+            productsChange: `+${totalProducts > 5 ? '5' : totalProducts}`,
             customersChange: "+15.3%"
         });
     } catch (error) {
+        console.error('Stats Error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });

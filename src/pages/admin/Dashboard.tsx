@@ -1,13 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
-import { ShoppingCart, Package, Users, DollarSign, TrendingUp, Loader2, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { ShoppingCart, Package, Users, IndianRupee, TrendingUp, Loader2, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { motion } from "framer-motion";
 import AdminLayout from "@/components/admin/AdminLayout";
+import { useNavigate } from "react-router-dom";
 
 interface Stats {
     totalUsers: number;
     totalProducts: number;
     totalOrders: number;
     totalRevenue: number;
+    recentOrders: any[];
     revenueChange: string;
     ordersChange: string;
     productsChange: string;
@@ -17,17 +19,19 @@ interface Stats {
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 const Dashboard = () => {
+    const navigate = useNavigate();
     const { data: stats, isLoading } = useQuery<Stats>({
         queryKey: ['admin-stats'],
         queryFn: async () => {
             const res = await fetch(`${API_URL}/admin/stats`, { credentials: 'include' });
             if (!res.ok) throw new Error('Failed to fetch stats');
             return res.json();
-        }
+        },
+        refetchInterval: 30000 // Poll every 30 seconds for real-time magic
     });
 
     const displayStats = [
-        { label: "Total Revenue", value: `$${stats?.totalRevenue.toFixed(2) || "0.00"}`, icon: DollarSign, change: stats?.revenueChange || "0%", color: "text-emerald-500", bg: "bg-emerald-500/10", trend: "up" },
+        { label: "Total Revenue", value: `₹${stats?.totalRevenue.toFixed(2) || "0.00"}`, icon: IndianRupee, change: stats?.revenueChange || "0%", color: "text-emerald-500", bg: "bg-emerald-500/10", trend: "up" },
         { label: "Total Orders", value: stats?.totalOrders.toString() || "0", icon: ShoppingCart, change: stats?.ordersChange || "0%", color: "text-blue-500", bg: "bg-blue-500/10", trend: "up" },
         { label: "Toys in Catalog", value: stats?.totalProducts.toString() || "0", icon: Package, change: stats?.productsChange || "0", color: "text-orange-500", bg: "bg-orange-500/10", trend: "up" },
         { label: "Happy Customers", value: stats?.totalUsers.toString() || "0", icon: Users, change: stats?.customersChange || "0%", color: "text-purple-500", bg: "bg-purple-500/10", trend: "up" },
@@ -71,27 +75,38 @@ const Dashboard = () => {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Recent Activity Mock */}
-                    <div className="bg-card rounded-[2.5rem] border border-border p-8 shadow-sm">
-                        <h2 className="text-xl font-display font-black text-foreground mb-6">Recent Sales</h2>
+                    <div className="bg-card rounded-[2.5rem] border border-border p-8 shadow-sm group/sales h-full">
+                        <div className="flex items-center justify-between mb-8">
+                            <h2 className="text-xl font-display font-black text-foreground">Recent Sales</h2>
+                            <div className="px-3 py-1 bg-primary/10 rounded-full text-[10px] font-black text-primary uppercase tracking-widest animate-pulse">Live Feed</div>
+                        </div>
                         <div className="space-y-6">
-                            {[1, 2, 3, 4].map((item) => (
-                                <div key={item} className="flex items-center justify-between group cursor-pointer">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 bg-accent rounded-2xl flex items-center justify-center text-xl">🎁</div>
-                                        <div>
-                                            <p className="font-display font-bold text-foreground">New order #892{item}</p>
-                                            <p className="text-xs text-muted-foreground/60 font-medium">2 minutes ago • $45.00</p>
+                            {stats?.recentOrders && stats.recentOrders.length > 0 ? (
+                                stats.recentOrders.map((order) => (
+                                    <div key={order.id} className="flex items-center justify-between group cursor-pointer hover:translate-x-1 transition-transform" onClick={() => navigate('/admin/orders')}>
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 bg-accent rounded-2xl flex items-center justify-center text-xl shadow-sm group-hover:bg-primary/10 transition-colors">🎁</div>
+                                            <div>
+                                                <p className="font-display font-bold text-foreground line-clamp-1">{order.user?.name || "Guest"}'s Order</p>
+                                                <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">
+                                                    #{order.id.slice(0, 8)} • ₹{order.total.toFixed(2)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="text-primary opacity-30 group-hover:opacity-100 transition-all">
+                                            <ArrowUpRight className="h-4 w-4" />
                                         </div>
                                     </div>
-                                    <div className="text-primary opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <ArrowUpRight className="h-5 w-5" />
-                                    </div>
+                                ))
+                            ) : (
+                                <div className="py-10 text-center space-y-3">
+                                    <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto text-2xl">💤</div>
+                                    <p className="font-display font-bold text-muted-foreground text-sm">Waiting for the first sale...</p>
                                 </div>
-                            ))}
+                            )}
                         </div>
-                        <button className="w-full mt-8 py-4 text-sm font-display font-bold text-primary bg-primary/5 rounded-2xl hover:bg-primary/10 transition-colors">
-                            View All Orders
+                        <button onClick={() => navigate('/admin/orders')} className="w-full mt-10 py-4 text-[10px] font-display font-black text-primary bg-primary/5 rounded-2xl hover:bg-primary/10 transition-all uppercase tracking-widest border border-primary/10">
+                            View Every Treasure Sold
                         </button>
                     </div>
 
@@ -103,14 +118,18 @@ const Dashboard = () => {
 
                             <div className="grid grid-cols-2 gap-4">
                                 {[
-                                    { label: "New Product", icon: Package },
-                                    { label: "Announcements", icon: TrendingUp },
-                                    { label: "Check Reviews", icon: Users },
-                                    { label: "Export PDF", icon: DollarSign },
+                                    { label: "Products", icon: Package, href: "/admin/products" },
+                                    { label: "Analytics", icon: TrendingUp, href: "/admin/analytics" },
+                                    { label: "Customers", icon: Users, href: "/admin/customers" },
+                                    { label: "Orders", icon: ShoppingCart, href: "/admin/orders" },
                                 ].map((action) => (
-                                    <button key={action.label} className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl text-left hover:bg-white/20 transition-all group">
-                                        <action.icon className="h-5 w-5 text-white/60 mb-2 group-hover:text-white transition-colors" />
-                                        <p className="text-xs font-display font-black uppercase tracking-wider">{action.label}</p>
+                                    <button
+                                        key={action.label}
+                                        onClick={() => navigate(action.href)}
+                                        className="bg-white/10 backdrop-blur-md border border-white/20 p-5 rounded-3xl text-left hover:bg-white/20 transition-all group active:scale-95"
+                                    >
+                                        <action.icon className="h-5 w-5 text-white/60 mb-3 group-hover:text-white transition-colors" />
+                                        <p className="text-[10px] font-display font-black uppercase tracking-widest leading-tight">{action.label}</p>
                                     </button>
                                 ))}
                             </div>
