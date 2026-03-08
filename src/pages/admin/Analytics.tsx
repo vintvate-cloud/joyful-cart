@@ -22,16 +22,16 @@ const Analytics = () => {
             <div className="p-6 md:p-10 max-w-7xl mx-auto">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
                     <div>
-                        <h1 className="text-4xl font-display font-black text-slate-900 tracking-tight mb-2">Market Insights</h1>
-                        <p className="text-slate-500 font-body font-medium">Visualizing the magic growth of your toy store ✨</p>
+                        <h1 className="text-4xl font-display font-black text-foreground tracking-tight mb-2">Market Insights</h1>
+                        <p className="text-muted-foreground font-body font-medium">Visualizing the magic growth of your toy store ✨</p>
                     </div>
-                    <div className="bg-white px-6 py-4 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-3">
-                        <div className="w-10 h-10 bg-emerald-100 rounded-2xl flex items-center justify-center">
+                    <div className="bg-card px-6 py-4 rounded-3xl border border-border shadow-sm flex items-center gap-3">
+                        <div className="w-10 h-10 bg-emerald-500/10 rounded-2xl flex items-center justify-center">
                             <Zap className="h-6 w-6 text-emerald-500" />
                         </div>
                         <div>
-                            <p className="text-[10px] font-display font-black text-slate-400 uppercase tracking-widest">Growth Rate</p>
-                            <p className="font-display font-black text-slate-900 leading-none">+24.8% <span className="text-[10px] text-emerald-500 font-bold ml-1">↑</span></p>
+                            <p className="text-[10px] font-display font-black text-muted-foreground/60 uppercase tracking-widest">Growth Rate</p>
+                            <p className="font-display font-black text-foreground leading-none">+24.8% <span className="text-[10px] text-emerald-500 font-bold ml-1">↑</span></p>
                         </div>
                     </div>
                 </div>
@@ -39,7 +39,7 @@ const Analytics = () => {
                 {isLoading ? (
                     <div className="p-20 flex flex-col items-center gap-4">
                         <Loader2 className="h-10 w-10 text-primary animate-spin" />
-                        <p className="font-display font-bold text-slate-400">Scanning data points...</p>
+                        <p className="font-display font-bold text-muted-foreground">Scanning data points...</p>
                     </div>
                 ) : (
                     <motion.div
@@ -48,11 +48,11 @@ const Analytics = () => {
                         className="space-y-8"
                     >
                         {/* Revenue Area Chart */}
-                        <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm">
+                        <div className="bg-card p-8 rounded-[3rem] border border-border shadow-sm">
                             <div className="flex items-center justify-between mb-8">
                                 <div>
-                                    <h2 className="text-xl font-display font-black text-slate-900">Revenue Growth</h2>
-                                    <p className="text-[10px] text-slate-400 font-display font-bold uppercase tracking-widest">Monthly sales performance</p>
+                                    <h2 className="text-xl font-display font-black text-foreground">Revenue Growth</h2>
+                                    <p className="text-[10px] text-muted-foreground/60 font-display font-bold uppercase tracking-widest">Monthly sales performance</p>
                                 </div>
                                 <div className="p-4 bg-primary/10 rounded-2xl">
                                     <DollarSign className="h-6 w-6 text-primary" />
@@ -67,17 +67,17 @@ const Analytics = () => {
                                                 <stop offset="95%" stopColor="#4D96FF" stopOpacity={0} />
                                             </linearGradient>
                                         </defs>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                                         <XAxis
                                             dataKey="name"
                                             axisLine={false}
                                             tickLine={false}
-                                            tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 'bold' }}
+                                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12, fontWeight: 'bold' }}
                                         />
                                         <YAxis
                                             axisLine={false}
                                             tickLine={false}
-                                            tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 'bold' }}
+                                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12, fontWeight: 'bold' }}
                                         />
                                         <Tooltip
                                             contentStyle={{
@@ -95,10 +95,10 @@ const Analytics = () => {
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                             {/* Category Distribution Pie */}
-                            <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col items-center">
+                            <div className="bg-card p-8 rounded-[3rem] border border-border shadow-sm flex flex-col items-center">
                                 <div className="w-full mb-8">
-                                    <h2 className="text-xl font-display font-black text-slate-900">Category Power</h2>
-                                    <p className="text-[10px] text-slate-400 font-display font-bold uppercase tracking-widest">Sales by toy category</p>
+                                    <h2 className="text-xl font-display font-black text-foreground">Category Power</h2>
+                                    <p className="text-[10px] text-muted-foreground/60 font-display font-bold uppercase tracking-widest">Sales by toy category</p>
                                 </div>
                                 <div className="h-[300px] w-full">
                                     <ResponsiveContainer width="100%" height="100%">
@@ -125,7 +125,7 @@ const Analytics = () => {
                                     {analytics.categoryDistribution.map((entry: any, index: number) => (
                                         <div key={entry.name} className="flex items-center gap-2">
                                             <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                                            <span className="text-xs font-display font-bold text-slate-600">{entry.name}</span>
+                                            <span className="text-xs font-display font-bold text-muted-foreground">{entry.name}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -136,7 +136,7 @@ const Analytics = () => {
                                 <div className="bg-primary p-8 rounded-[3rem] text-white relative overflow-hidden shadow-xl shadow-primary/20">
                                     <div className="relative z-10">
                                         <div className="flex items-center gap-3 mb-6">
-                                            <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-md">
+                                            <div className="p-3 bg-white/10 rounded-2xl backdrop-blur-md border border-white/10">
                                                 <Target className="h-6 w-6" />
                                             </div>
                                             <h3 className="text-xl font-display font-black">Conversion Goal</h3>
@@ -162,11 +162,11 @@ const Analytics = () => {
                                     <Sparkles className="absolute top-1/2 right-[-20px] h-40 w-40 text-white/5" />
                                 </div>
 
-                                <div className="bg-slate-950 p-8 rounded-[3rem] text-white h-full relative overflow-hidden">
+                                <div className="bg-primary/5 p-8 rounded-[3rem] border border-primary/20 text-foreground h-full relative overflow-hidden">
                                     <div className="relative z-10 flex flex-col justify-center h-full">
                                         <div className="flex items-center gap-3 mb-6">
-                                            <div className="p-3 bg-white/10 rounded-2xl border border-white/10">
-                                                <ShoppingCart className="h-6 w-6 text-slate-400" />
+                                            <div className="p-3 bg-primary/10 rounded-2xl border border-primary/20">
+                                                <ShoppingCart className="h-6 w-6 text-primary" />
                                             </div>
                                             <h3 className="text-xl font-display font-black">Retention Funnel</h3>
                                         </div>
@@ -178,8 +178,8 @@ const Analytics = () => {
                                             ].map((item, idx) => (
                                                 <div key={item.label} className="relative">
                                                     <div className="flex justify-between items-center mb-1 pr-1">
-                                                        <span className="text-[10px] font-display font-black uppercase tracking-widest text-slate-500">{item.label}</span>
-                                                        <span className="text-xs font-display font-black">{item.val}</span>
+                                                        <span className="text-[10px] font-display font-black uppercase tracking-widest text-muted-foreground/60">{item.label}</span>
+                                                        <span className="text-xs font-display font-black text-foreground">{item.val}</span>
                                                     </div>
                                                     <div className="w-full h-2 bg-white/5 rounded-full">
                                                         <div className="h-full bg-primary rounded-full" style={{ width: item.p, opacity: 1 - (idx * 0.2) }} />

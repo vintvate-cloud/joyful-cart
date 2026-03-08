@@ -37,8 +37,8 @@ const Dashboard = () => {
         <AdminLayout>
             <div className="p-6 md:p-10 max-w-7xl mx-auto">
                 <div className="mb-10">
-                    <h1 className="text-4xl font-display font-black text-slate-900 tracking-tight mb-2">System Overview</h1>
-                    <p className="text-slate-500 font-body font-medium">Here's what's happening in your toy kingdom today ✨</p>
+                    <h1 className="text-4xl font-display font-black text-foreground tracking-tight mb-2">System Overview</h1>
+                    <p className="text-muted-foreground font-body font-medium">Here's what's happening in your toy kingdom today ✨</p>
                 </div>
 
                 {/* Stats Grid */}
@@ -49,7 +49,7 @@ const Dashboard = () => {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: i * 0.1 }}
-                            className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm group hover:shadow-xl hover:shadow-primary/5 transition-all duration-300"
+                            className="bg-card p-6 rounded-[2.5rem] border border-border shadow-sm group hover:shadow-xl hover:shadow-primary/5 transition-all duration-300"
                         >
                             <div className="flex items-center justify-between mb-6">
                                 <div className={`p-4 rounded-2xl ${s.bg} transition-transform group-hover:scale-110 duration-300`}>
@@ -61,9 +61,9 @@ const Dashboard = () => {
                                 </div>
                             </div>
                             <div>
-                                <p className="text-slate-400 text-xs font-display font-black uppercase tracking-widest mb-1">{s.label}</p>
-                                <p className="text-3xl font-display font-black text-slate-900 tracking-tight">
-                                    {isLoading ? <Loader2 className="h-6 w-6 animate-spin text-slate-300" /> : s.value}
+                                <p className="text-muted-foreground/60 text-xs font-display font-black uppercase tracking-widest mb-1">{s.label}</p>
+                                <p className="text-3xl font-display font-black text-foreground tracking-tight">
+                                    {isLoading ? <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/30" /> : s.value}
                                 </p>
                             </div>
                         </motion.div>
@@ -72,16 +72,16 @@ const Dashboard = () => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* Recent Activity Mock */}
-                    <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm">
-                        <h2 className="text-xl font-display font-black text-slate-900 mb-6">Recent Sales</h2>
+                    <div className="bg-card rounded-[2.5rem] border border-border p-8 shadow-sm">
+                        <h2 className="text-xl font-display font-black text-foreground mb-6">Recent Sales</h2>
                         <div className="space-y-6">
                             {[1, 2, 3, 4].map((item) => (
                                 <div key={item} className="flex items-center justify-between group cursor-pointer">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center text-xl">🎁</div>
+                                        <div className="w-12 h-12 bg-accent rounded-2xl flex items-center justify-center text-xl">🎁</div>
                                         <div>
-                                            <p className="font-display font-bold text-slate-900">New order #892{item}</p>
-                                            <p className="text-xs text-slate-400 font-medium">2 minutes ago • $45.00</p>
+                                            <p className="font-display font-bold text-foreground">New order #892{item}</p>
+                                            <p className="text-xs text-muted-foreground/60 font-medium">2 minutes ago • $45.00</p>
                                         </div>
                                     </div>
                                     <div className="text-primary opacity-0 group-hover:opacity-100 transition-opacity">

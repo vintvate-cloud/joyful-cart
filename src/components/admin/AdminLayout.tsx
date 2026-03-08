@@ -42,15 +42,15 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     ];
 
     return (
-        <div className="min-h-screen bg-slate-50 flex">
+        <div className="min-h-screen bg-background text-foreground flex dark">
             {/* Desktop Sidebar */}
-            <aside className="hidden md:flex w-72 bg-white border-r border-slate-200 flex-col sticky top-0 h-screen">
+            <aside className="hidden md:flex w-72 bg-card border-r border-border flex-col sticky top-0 h-screen">
                 <div className="p-8">
                     <Link to="/" className="flex items-center gap-3 mb-10 group">
                         <div className="w-10 h-10 bg-primary/10 rounded-2xl flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                             <span className="text-2xl">🧸</span>
                         </div>
-                        <span className="text-2xl font-display font-black text-slate-900 tracking-tight">JoyBox <span className="text-[10px] uppercase font-black text-primary bg-primary/10 px-2 py-0.5 rounded-full ml-1">Admin</span></span>
+                        <span className="text-2xl font-display font-black text-foreground tracking-tight">JoyBox <span className="text-[10px] uppercase font-black text-primary bg-primary/10 px-2 py-0.5 rounded-full ml-1">Admin</span></span>
                     </Link>
 
                     <nav className="space-y-1.5">
@@ -61,11 +61,11 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                                     key={item.label}
                                     to={item.href}
                                     className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-display font-bold transition-all ${isActive
-                                            ? "bg-primary text-white shadow-lg shadow-primary/20"
-                                            : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                                        ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                                         }`}
                                 >
-                                    <item.icon className={`h-5 w-5 ${isActive ? "text-white" : "text-slate-400"}`} />
+                                    <item.icon className={`h-5 w-5 ${isActive ? "text-primary-foreground" : "text-muted-foreground/60"}`} />
                                     {item.label}
                                 </Link>
                             );
@@ -73,13 +73,13 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                     </nav>
                 </div>
 
-                <div className="mt-auto p-6 border-t border-slate-100">
-                    <Link to="/" className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-display font-bold text-slate-500 hover:bg-slate-100 mb-2">
-                        <Home className="h-5 w-5 text-slate-400" /> Back to Store
+                <div className="mt-auto p-6 border-t border-border">
+                    <Link to="/" className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-display font-bold text-muted-foreground hover:bg-accent hover:text-accent-foreground mb-2">
+                        <Home className="h-5 w-5 text-muted-foreground/60" /> Back to Store
                     </Link>
                     <button
                         onClick={() => logout()}
-                        className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-display font-bold text-red-500 hover:bg-red-50 transition-all"
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-display font-bold text-red-400 hover:bg-red-400/10 transition-all"
                     >
                         <LogOut className="h-5 w-5" /> Logout
                     </button>
@@ -87,9 +87,9 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
             </aside>
 
             {/* Mobile Header */}
-            <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b border-slate-200 px-4 flex items-center justify-between z-40">
-                <span className="text-xl font-display font-black text-slate-900">JoyBox <span className="text-[10px] text-primary">Admin</span></span>
-                <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-slate-600">
+            <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-card border-b border-border px-4 flex items-center justify-between z-40">
+                <span className="text-xl font-display font-black text-foreground">JoyBox <span className="text-[10px] text-primary">Admin</span></span>
+                <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-muted-foreground">
                     {isMobileMenuOpen ? <X /> : <Menu />}
                 </button>
             </div>
@@ -101,10 +101,10 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                         initial={{ opacity: 0, x: -300 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: -300 }}
-                        className="md:hidden fixed inset-0 bg-white z-50 p-6 flex flex-col"
+                        className="md:hidden fixed inset-0 bg-card z-50 p-6 flex flex-col"
                     >
                         <div className="flex items-center justify-between mb-8">
-                            <span className="text-2xl font-display font-black text-slate-900">JoyBox <span className="text-[10px] text-primary">Admin</span></span>
+                            <span className="text-2xl font-display font-black text-foreground">JoyBox <span className="text-[10px] text-primary">Admin</span></span>
                             <button onClick={() => setIsMobileMenuOpen(false)} className="p-2"><X /></button>
                         </div>
                         <nav className="space-y-4">
@@ -113,7 +113,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                                     key={item.label}
                                     to={item.href}
                                     onClick={() => setIsMobileMenuOpen(false)}
-                                    className={`flex items-center gap-4 px-6 py-4 rounded-3xl text-lg font-display font-bold ${location.pathname === item.href ? "bg-primary text-white" : "text-slate-500"
+                                    className={`flex items-center gap-4 px-6 py-4 rounded-3xl text-lg font-display font-bold ${location.pathname === item.href ? "bg-primary text-primary-foreground" : "text-muted-foreground"
                                         }`}
                                 >
                                     <item.icon className="h-6 w-6" /> {item.label}
@@ -122,7 +122,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                         </nav>
                         <button
                             onClick={() => logout()}
-                            className="mt-auto flex items-center gap-4 px-6 py-4 rounded-3xl text-lg font-display font-bold text-red-500"
+                            className="mt-auto flex items-center gap-4 px-6 py-4 rounded-3xl text-lg font-display font-bold text-red-400"
                         >
                             <LogOut className="h-6 w-6" /> Logout
                         </button>
@@ -131,7 +131,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
             </AnimatePresence>
 
             {/* Main Content */}
-            <main className="flex-1 w-full pt-16 md:pt-0 overflow-x-hidden">
+            <main className="flex-1 w-full pt-16 md:pt-0 overflow-x-hidden bg-background">
                 {children}
             </main>
         </div>

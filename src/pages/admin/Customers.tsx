@@ -35,13 +35,13 @@ const Customers = () => {
         <AdminLayout>
             <div className="p-6 md:p-10 max-w-7xl mx-auto">
                 <div className="mb-10">
-                    <h1 className="text-4xl font-display font-black text-slate-900 tracking-tight mb-2">Happiest Customers</h1>
-                    <p className="text-slate-500 font-body font-medium">Monitoring the growing family of Joybox fans 🧸</p>
+                    <h1 className="text-4xl font-display font-black text-foreground tracking-tight mb-2">Happiest Customers</h1>
+                    <p className="text-muted-foreground font-body font-medium">Monitoring the growing family of Joybox fans 🧸</p>
                 </div>
 
                 {/* Search Bar */}
-                <div className="bg-white p-4 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-center gap-4 mb-10 group">
-                    <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-primary transition-transform group-focus-within:scale-[1.15]">
+                <div className="bg-card p-4 rounded-[2.5rem] border border-border shadow-sm flex items-center gap-4 mb-10 group">
+                    <div className="w-12 h-12 bg-background rounded-2xl flex items-center justify-center text-primary transition-transform group-focus-within:scale-[1.15]">
                         <Search className="h-6 w-6" />
                     </div>
                     <input
@@ -49,61 +49,60 @@ const Customers = () => {
                         placeholder="Search by name, email or customer ID..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="flex-1 bg-transparent border-none outline-none font-display font-bold text-slate-900 text-lg placeholder:text-slate-300"
+                        className="flex-1 bg-transparent border-none outline-none font-display font-bold text-foreground text-lg placeholder:text-muted-foreground/30"
                     />
                 </div>
 
-                {/* Grid View */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {isLoading ? (
                         <div className="col-span-full p-20 flex flex-col items-center gap-4">
                             <Loader2 className="h-10 w-10 text-primary animate-spin" />
-                            <p className="font-display font-bold text-slate-400">Loading members list...</p>
+                            <p className="font-display font-bold text-muted-foreground">Loading members list...</p>
                         </div>
                     ) : filteredCustomers.map((customer) => (
-                        <div key={customer.id} className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-primary/5 transition-all duration-500 group relative overflow-hidden">
+                        <div key={customer.id} className="bg-card p-8 rounded-[3rem] border border-border shadow-sm hover:shadow-2xl hover:shadow-primary/5 transition-all duration-500 group relative overflow-hidden">
                             <div className="flex items-start justify-between mb-8">
-                                <div className="w-20 h-20 bg-slate-50 rounded-[2.5rem] flex items-center justify-center text-3xl shadow-inner relative group-hover:bg-primary/5 transition-colors">
+                                <div className="w-20 h-20 bg-background rounded-[2.5rem] flex items-center justify-center text-3xl shadow-inner relative group-hover:bg-primary/5 transition-colors border border-border/50">
                                     {customer.name ? customer.name.charAt(0).toUpperCase() : '👤'}
                                     {customer.role === 'ADMIN' && (
-                                        <div className="absolute -top-1 -right-1 bg-rose-500 p-2 rounded-2xl border-4 border-white shadow-md">
+                                        <div className="absolute -top-1 -right-1 bg-rose-500 p-2 rounded-2xl border-4 border-card shadow-md">
                                             <ShieldAlert className="h-4 w-4 text-white" />
                                         </div>
                                     )}
                                 </div>
                                 <div className="flex flex-col items-end">
-                                    <div className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest ${customer.role === 'ADMIN' ? 'bg-rose-100 text-rose-600' : 'bg-primary/10 text-primary'}`}>
+                                    <div className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest ${customer.role === 'ADMIN' ? 'bg-rose-500/10 text-rose-500' : 'bg-primary/10 text-primary'}`}>
                                         {customer.role}
                                     </div>
                                     <div className="flex items-center gap-2 mt-4">
-                                        <div className="p-2 bg-emerald-50 rounded-xl">
+                                        <div className="p-2 bg-emerald-500/10 rounded-xl">
                                             <ShoppingBag className="h-4 w-4 text-emerald-500" />
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-xs font-display font-black text-slate-900">{customer._count.orders}</p>
-                                            <p className="text-[10px] text-slate-400 font-display font-bold uppercase tracking-widest leading-none">Orders</p>
+                                            <p className="text-xs font-display font-black text-foreground">{customer._count.orders}</p>
+                                            <p className="text-[10px] text-muted-foreground/60 font-display font-bold uppercase tracking-widest leading-none">Orders</p>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
                             <div className="mb-8">
-                                <h3 className="text-xl font-display font-black text-slate-900 leading-tight mb-1">{customer.name || 'Anonymous User'}</h3>
-                                <p className="text-sm text-slate-400 font-body font-medium transition-colors group-hover:text-primary">{customer.email}</p>
+                                <h3 className="text-xl font-display font-black text-foreground leading-tight mb-1">{customer.name || 'Anonymous User'}</h3>
+                                <p className="text-sm text-muted-foreground font-body font-medium transition-colors group-hover:text-primary">{customer.email}</p>
                             </div>
 
-                            <div className="space-y-4 pt-6 border-t border-slate-50">
+                            <div className="space-y-4 pt-6 border-t border-border/50">
                                 <div className="flex items-center gap-3">
-                                    <Calendar className="h-4 w-4 text-slate-400" />
-                                    <p className="text-xs text-slate-400 font-display font-bold uppercase tracking-widest">Joined {format(new Date(customer.createdAt), "MMM d, yyyy")}</p>
+                                    <Calendar className="h-4 w-4 text-muted-foreground/30" />
+                                    <p className="text-xs text-muted-foreground/60 font-display font-bold uppercase tracking-widest">Joined {format(new Date(customer.createdAt), "MMM d, yyyy")}</p>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <BadgeCheck className="h-4 w-4 text-slate-400" />
-                                    <p className="text-xs text-slate-400 font-display font-bold uppercase tracking-widest">Verified Account</p>
+                                    <BadgeCheck className="h-4 w-4 text-muted-foreground/30" />
+                                    <p className="text-xs text-muted-foreground/60 font-display font-bold uppercase tracking-widest">Verified Account</p>
                                 </div>
                             </div>
 
-                            <button className="absolute bottom-6 right-6 p-4 bg-slate-50 rounded-3xl hover:bg-primary hover:text-white transition-all transform scale-0 group-hover:scale-100 duration-300">
+                            <button className="absolute bottom-6 right-6 p-4 bg-background rounded-3xl hover:bg-primary hover:text-white transition-all transform scale-0 group-hover:scale-100 duration-300 shadow-lg">
                                 <ArrowUpRight className="h-6 w-6" />
                             </button>
                         </div>
