@@ -158,15 +158,32 @@ app.get('/api/categories', async (req, res) => {
 
 // Create product
 app.post('/api/products', authenticateToken, authorizeRoles(['ADMIN']), async (req, res) => {
-    const { title, description, price, originalPrice, image, categoryId, brand, ageGroup, stock } = req.body;
+    const { title, description, price, originalPrice, image, categoryId, brand, ageGroup, stock, isFeatured } = req.body;
     try {
         const product = await prisma.product.create({
             data: {
                 title, description, price: parseFloat(price), originalPrice: originalPrice ? parseFloat(originalPrice) : null,
-                image, categoryId, brand, ageGroup, stock: parseInt(stock) || 0
+                image, categoryId, brand, ageGroup, stock: parseInt(stock) || 0, isFeatured: !!isFeatured
             }
         });
         res.status(201).json(product);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Update product
+app.put('/api/products/:id', authenticateToken, authorizeRoles(['ADMIN']), async (req, res) => {
+    const { title, description, price, originalPrice, image, categoryId, brand, ageGroup, stock, isFeatured } = req.body;
+    try {
+        const product = await prisma.product.update({
+            where: { id: req.params.id },
+            data: {
+                title, description, price: parseFloat(price), originalPrice: originalPrice ? parseFloat(originalPrice) : null,
+                image, categoryId, brand, ageGroup, stock: parseInt(stock) || 0, isFeatured: !!isFeatured
+            }
+        });
+        res.json(product);
     } catch (error) {
         res.status(500).json({ message: 'Server error' });
     }
@@ -182,7 +199,52 @@ app.delete('/api/products/:id', authenticateToken, authorizeRoles(['ADMIN']), as
     }
 });
 
-// --- STATS ROUTE ---
+// --- ADMIN ORDER ACTIONS ---
+
+// Get all orders
+app.get('/api/admin/orders', authenticateToken, authorizeRoles(['ADMIN']), async (req, res) => {
+    try {
+        const orders = await prisma.order.findMany({
+            include: { user: true, items: { include: { product: true } } },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json(orders);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Update order status
+app.put('/api/admin/orders/:id', authenticateToken, authorizeRoles(['ADMIN']), async (req, res) => {
+    const { status } = req.body;
+    try {
+        const order = await prisma.order.update({
+            where: { id: req.params.id },
+            data: { status }
+        });
+        res.json(order);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// --- ADMIN CUSTOMER ACTIONS ---
+
+// Get all users
+app.get('/api/admin/users', authenticateToken, authorizeRoles(['ADMIN']), async (req, res) => {
+    try {
+        const users = await prisma.user.findMany({
+            include: { _count: { select: { orders: true } } },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json(users);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// --- STATS & ANALYTICS ---
+
 app.get('/api/admin/stats', authenticateToken, authorizeRoles(['ADMIN']), async (req, res) => {
     try {
         const totalUsers = await prisma.user.count();
@@ -197,10 +259,43 @@ app.get('/api/admin/stats', authenticateToken, authorizeRoles(['ADMIN']), async 
             totalProducts,
             totalOrders,
             totalRevenue: totalRevenue._sum.total || 0,
-            revenueChange: "+12.5%", // Mocking changes for now
+            revenueChange: "+12.5%", // Mocking changes
             ordersChange: "+8.2%",
             productsChange: "+3",
             customersChange: "+15.3%"
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+app.get('/api/admin/analytics', authenticateToken, authorizeRoles(['ADMIN']), async (req, res) => {
+    try {
+        // Simple monthly revenue for the last 6 months (mocked with logic)
+        const orders = await prisma.order.findMany({
+            where: { createdAt: { gte: new Date(new Date().setMonth(new Date().getMonth() - 6)) } },
+            select: { total: true, createdAt: true }
+        });
+
+        const revenueByMonth = orders.reduce((acc: any, order) => {
+            const month = order.createdAt.toLocaleString('default', { month: 'short' });
+            acc[month] = (acc[month] || 0) + order.total;
+            return acc;
+        }, {});
+
+        const chartData = Object.keys(revenueByMonth).map(month => ({
+            name: month,
+            revenue: revenueByMonth[month]
+        }));
+
+        res.json({
+            revenueChart: chartData,
+            categoryDistribution: [
+                { name: 'Toys', value: 400 },
+                { name: 'Clothes', value: 300 },
+                { name: 'Books', value: 300 },
+                { name: 'Electronics', value: 200 },
+            ]
         });
     } catch (error) {
         res.status(500).json({ message: 'Server error' });

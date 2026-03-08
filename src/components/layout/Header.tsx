@@ -61,7 +61,7 @@ const Header = () => {
           <AnimatePresence mode="wait">
             {!isLoading && user ? (
               <Link
-                to="/profile"
+                to={user.role === 'ADMIN' ? "/admin/dashboard" : "/profile"}
                 key="user-profile"
                 className="flex items-center gap-2 p-1.5 pr-3 md:p-2.5 rounded-2xl bg-primary/5 hover:bg-primary/10 transition-all border border-primary/20"
               >
@@ -122,7 +122,15 @@ const Header = () => {
                   {item.label}
                 </Link>
               ))}
-              {!user && (
+              {user ? (
+                <Link
+                  to={user.role === 'ADMIN' ? "/admin/dashboard" : "/profile"}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block px-4 py-3 text-base font-display font-bold text-primary bg-primary/5 rounded-2xl transition-all"
+                >
+                  {user.role === 'ADMIN' ? "Admin Dashboard" : "My Profile"}
+                </Link>
+              ) : (
                 <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-base font-display font-bold text-primary bg-primary/5 rounded-2xl transition-all">
                   Login / Sign Up
                 </Link>

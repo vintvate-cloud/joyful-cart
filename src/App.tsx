@@ -9,8 +9,12 @@ import { ThemeProvider } from "@/hooks/useTheme";
 import Index from "./pages/Index";
 import ProductPage from "./pages/ProductPage";
 import ShopPage from "./pages/ShopPage";
-import AdminDashboard from "./pages/AdminDashboard";
 import AdminLoginPage from "./pages/AdminLoginPage";
+import AdminDashboardPage from "./pages/admin/Dashboard";
+import AdminProductsPage from "./pages/admin/Products";
+import AdminOrdersPage from "./pages/admin/Orders";
+import AdminCustomersPage from "./pages/admin/Customers";
+import AdminAnalyticsPage from "./pages/admin/Analytics";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
@@ -37,7 +41,11 @@ const App = () => (
                 <Route path="/shop" element={<ShopPage />} />
                 <Route path="/product/:id" element={<ProductPage />} />
                 <Route path="/admin" element={<AdminLoginPage />} />
-                <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+                <Route path="/admin/products" element={<AdminProductsPage />} />
+                <Route path="/admin/orders" element={<AdminOrdersPage />} />
+                <Route path="/admin/customers" element={<AdminCustomersPage />} />
+                <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/signup" element={<SignupPage />} />
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
