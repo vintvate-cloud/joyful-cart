@@ -22,6 +22,9 @@ interface Order {
     state?: string | null;
     pincode?: string | null;
     paymentMethod?: string | null;
+    razorpayPaymentId?: string | null;
+    deliveryCharge?: number | null;
+    advancePaid?: number | null;
 }
 
 interface OrderInvoiceProps {
@@ -35,8 +38,9 @@ const OrderInvoice = ({ order, onClose }: OrderInvoiceProps) => {
     };
 
     const subtotal = order.items.reduce((acc, item) => acc + item.price * item.quantity, 0);
-    const shipping = subtotal > 499 ? 0 : 49;
-    const codCharge = order.paymentMethod === "cod" ? subtotal * 0.02 : 0;
+    const delivery = order.deliveryCharge ?? 100;
+    const isCoD = order.paymentMethod === 'cod';
+    const advancePaid = order.advancePaid ?? null;
 
     return (
         <motion.div
@@ -72,13 +76,13 @@ const OrderInvoice = ({ order, onClose }: OrderInvoiceProps) => {
                         <div>
                             <div className="flex items-center gap-3 mb-6">
                                 <span className="text-3xl">🛒</span>
-                                <h1 className="text-3xl font-display font-black tracking-tighter">JOYFUL CART</h1>
+                                <h1 className="text-3xl font-display font-black tracking-tighter">PRICEKAM</h1>
                             </div>
                             <div className="space-y-1 text-sm font-body text-slate-500">
                                 <p>Magic Warehouse Avenue, Suite 777</p>
                                 <p>Imagination City, TS 12345</p>
-                                <p>support@joyfulcart.toy</p>
-                                <p>+91 (800) 123-MAGIC</p>
+                                <p>support@pricekam.com</p>
+                                <p>+91 74897 81720</p>
                             </div>
                         </div>
 
@@ -109,10 +113,13 @@ const OrderInvoice = ({ order, onClose }: OrderInvoiceProps) => {
                             <h3 className="text-xs font-display font-black text-primary uppercase tracking-[0.2em] mb-4">Payment Intelligence</h3>
                             <div className="space-y-1 font-body">
                                 <p className="text-slate-500 uppercase tracking-widest text-[10px] font-black">Method</p>
-                                <p className="font-black text-slate-800 uppercase tracking-widest">{order.paymentMethod || "Prepaid"}</p>
+                                <p className="font-black text-slate-800 uppercase tracking-widest">{order.paymentMethod === 'cod' ? 'Partial COD' : order.paymentMethod === 'upi' ? 'UPI' : order.paymentMethod === 'card' ? 'Card' : 'Prepaid'}</p>
+                                {order.razorpayPaymentId && (
+                                    <p className="text-[10px] text-slate-400 font-mono mt-1 break-all">ID: {order.razorpayPaymentId}</p>
+                                )}
                                 <div className="pt-4 flex items-center md:justify-end gap-2 text-emerald-600">
                                     <ShieldCheck className="h-4 w-4" />
-                                    <span className="text-[10px] font-black uppercase tracking-widest">Transaction Verified</span>
+                                    <span className="text-[10px] font-black uppercase tracking-widest">Razorpay Verified</span>
                                 </div>
                             </div>
                         </div>
@@ -157,15 +164,21 @@ const OrderInvoice = ({ order, onClose }: OrderInvoiceProps) => {
                                 <span className="font-bold">₹{subtotal.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between items-center text-sm font-body text-slate-500">
-                                <span>Logistics Support</span>
-                                <span className="font-bold">{shipping === 0 ? "Complimentary" : `₹${shipping.toFixed(2)}`}</span>
+                                <span>Delivery Charge</span>
+                                <span className={`font-bold ${delivery === 0 ? 'text-emerald-500' : ''}`}>{delivery === 0 ? 'FREE ✓' : `₹${delivery.toFixed(2)}`}</span>
                             </div>
-                            {codCharge > 0 && (
-                                <div className="flex justify-between items-center text-sm font-body text-slate-500">
-                                    <span>COD Convenience</span>
-                                    <span className="font-bold">₹{codCharge.toFixed(2)}</span>
-                                </div>
-                            )}
+                            {isCoD && advancePaid ? (
+                                <>
+                                    <div className="flex justify-between items-center text-sm font-body text-slate-500">
+                                        <span>Advance Paid (Razorpay)</span>
+                                        <span className="font-bold text-emerald-600">₹{advancePaid.toFixed(2)} ✓</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-sm font-body text-slate-500">
+                                        <span>Balance Due on Delivery</span>
+                                        <span className="font-bold text-orange-500">₹{(order.total - advancePaid).toFixed(2)}</span>
+                                    </div>
+                                </>
+                            ) : null}
                             <div className="pt-4 border-t-2 border-slate-900 flex justify-between items-center">
                                 <span className="font-display font-black text-slate-900 uppercase tracking-widest text-xs">Grand Total</span>
                                 <span className="text-3xl font-display font-black text-primary flex items-center gap-1">

@@ -51,7 +51,7 @@ const Footer = () => {
                 <span className="text-3xl">🧸</span>
               </div>
               <span className="text-3xl font-display font-black tracking-tight text-primary">
-                Joyful<span className="text-secondary">Cart</span>
+                Price<span className="text-secondary">kam</span>
               </span>
             </Link>
             <p className="text-muted-foreground font-body leading-relaxed max-w-sm">
@@ -147,7 +147,7 @@ const Footer = () => {
         {/* Bottom Bar */}
         <div className="pt-10 border-t border-border/50 flex flex-col md:flex-row justify-between items-center gap-6">
           <p className="text-muted-foreground font-body text-sm font-medium">
-            © {currentYear} <span className="font-black text-foreground">JoyfulCart</span>. Crafted with ✨ and 🧸
+            © {currentYear} <span className="font-black text-foreground">Pricekam</span>. Crafted with ✨ and 🛍️
           </p>
           <div className="flex gap-8">
             {footerLinks.legal.map((link) => (

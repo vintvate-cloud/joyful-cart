@@ -7,6 +7,10 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { v2 as cloudinary } from 'cloudinary';
 import multer from 'multer';
+import Razorpay from 'razorpay';
+import crypto from 'crypto';
+import nodemailer from 'nodemailer';
+import { generateInvoiceEmail } from './emailTemplates.js';
 
 dotenv.config();
 
@@ -15,21 +19,36 @@ const prisma = new PrismaClient();
 const PORT = process.env.PORT || 5001;
 const JWT_SECRET = process.env.JWT_SECRET || 'joyful_cart_secret';
 
-// Configure Cloudinary
+// --- Razorpay Setup ---
+const razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID || '',
+    key_secret: process.env.RAZORPAY_KEY_SECRET || '',
+});
+
+// --- Nodemailer Setup ---
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+    },
+});
+
+// --- Configure Cloudinary ---
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Configure Multer for memory storage
+// --- Configure Multer ---
 const storage = multer.memoryStorage();
 const upload = multer({
     storage,
-    limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+    limits: { fileSize: 5 * 1024 * 1024 }
 });
 
-// Middleware
+// --- Middleware ---
 const authenticateToken = (req: any, res: any, next: any) => {
     const token = req.cookies.token;
     if (!token) return res.status(401).json({ message: 'Access denied' });
@@ -54,8 +73,14 @@ const authorizeRoles = (roles: string[]) => {
 
 app.use(cors({
     origin: (origin, callback) => {
-        // Allow any localhost origin during development
-        if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+        // Allow: no origin (Vite proxy / server-to-server), localhost, and ngrok tunnels
+        if (
+            !origin ||
+            origin.includes('localhost') ||
+            origin.includes('127.0.0.1') ||
+            origin.includes('ngrok-free.app') ||
+            origin.includes('ngrok.io')
+        ) {
             callback(null, true);
         } else {
             callback(new Error('Not allowed by CORS'));
@@ -66,13 +91,18 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
+// --- DELIVERY CHARGE LOGIC ---
+// ₹100 for all modes; waived for card if subtotal >= ₹2000
+function calcDeliveryCharge(paymentMethod: string, subtotal: number): number {
+    if (paymentMethod === 'card' && subtotal >= 2000) return 0;
+    return 100;
+}
+
 // --- AUTH ROUTES ---
 
 app.get('/api/test', (req, res) => {
-    res.json({ message: "JoyfulCart Server is Alive!", timestamp: new Date().toISOString() });
+    res.json({ message: "Pricekam Server is Alive!", timestamp: new Date().toISOString() });
 });
-
-// --- AUTH ROUTES ---
 
 // Get User Profile
 app.get('/api/auth/me', async (req, res) => {
@@ -86,7 +116,6 @@ app.get('/api/auth/me', async (req, res) => {
             res.clearCookie('token');
             return res.json({ user: null });
         }
-
         res.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role } });
     } catch (error) {
         res.clearCookie('token');
@@ -119,14 +148,15 @@ app.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body;
     try {
         const user = await prisma.user.findUnique({ where: { email } });
-        if (!user) {
-            return res.status(400).json({ message: 'Invalid credentials' });
+        if (!user) return res.status(400).json({ message: 'Invalid credentials' });
+
+        // Guard: Google-only users have no password
+        if (!user.password) {
+            return res.status(400).json({ message: 'This account uses Google sign-in. Please use "Continue with Google".' });
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(400).json({ message: 'Invalid credentials' });
-        }
+        if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
 
         const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '1d' });
         res.cookie('token', token, { httpOnly: true, maxAge: 24 * 60 * 60 * 1000 });
@@ -136,17 +166,326 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
+// Google OAuth via Supabase
+app.post('/api/auth/google', async (req, res) => {
+    const { access_token } = req.body;
+    if (!access_token) return res.status(400).json({ message: 'Missing access_token' });
+
+    const supabaseUrl = process.env.VITE_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !serviceRoleKey) {
+        return res.status(503).json({ message: 'Supabase not configured on server' });
+    }
+
+    try {
+        // Verify the token with Supabase service role
+        const { createClient } = await import('@supabase/supabase-js');
+        const adminClient = createClient(supabaseUrl, serviceRoleKey);
+        const { data: { user: sbUser }, error } = await adminClient.auth.getUser(access_token);
+
+        if (error || !sbUser) {
+            return res.status(401).json({ message: 'Invalid or expired Google token' });
+        }
+
+        const email = sbUser.email;
+        const name = sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || email?.split('@')[0];
+        const googleId = sbUser.id;
+
+        if (!email) return res.status(400).json({ message: 'No email from Google account' });
+
+        // Find by googleId OR email (links existing email/password accounts)
+        let user = await prisma.user.findFirst({
+            where: { OR: [{ googleId }, { email }] }
+        });
+
+        if (user) {
+            // Link googleId if not yet linked
+            if (!user.googleId) {
+                user = await prisma.user.update({
+                    where: { id: user.id },
+                    data: { googleId }
+                });
+            }
+        } else {
+            // Create new user (no password — Google-only)
+            user = await prisma.user.create({
+                data: { email, name, googleId }
+            });
+        }
+
+        const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+        res.cookie('token', token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
+        res.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+    } catch (err) {
+        console.error('Google auth error:', err);
+        res.status(500).json({ message: 'Google sign-in failed' });
+    }
+});
+
 // Logout
 app.post('/api/auth/logout', (req, res) => {
     res.clearCookie('token');
     res.json({ message: 'Logged out' });
 });
 
+// --- RAZORPAY PAYMENT ROUTES ---
+
+// Guard: reject requests if Razorpay keys are not configured
+function assertRazorpayConfigured(res: any): boolean {
+    if (!process.env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_KEY_SECRET.startsWith('XXXX')) {
+        res.status(503).json({ message: 'Payment gateway not configured. Please add Razorpay keys.' });
+        return false;
+    }
+    return true;
+}
+
+/**
+ * POST /api/payment/create-order
+ * Accepts items[], fetches REAL prices from DB, calculates totals server-side.
+ * Client-supplied prices are NEVER trusted.
+ */
+app.post('/api/payment/create-order', authenticateToken, async (req: any, res) => {
+    if (!assertRazorpayConfigured(res)) return;
+
+    const { items, paymentMethod } = req.body;
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ message: 'No items provided' });
+    }
+    if (!['card', 'upi', 'cod'].includes(paymentMethod)) {
+        return res.status(400).json({ message: 'Invalid payment method' });
+    }
+
+    try {
+        // Fetch REAL prices from database — never trust client-supplied prices
+        const productIds = items.map((i: any) => i.productId);
+        const products = await prisma.product.findMany({
+            where: { id: { in: productIds } },
+            select: { id: true, price: true, stock: true, title: true }
+        });
+
+        if (products.length !== productIds.length) {
+            return res.status(400).json({ message: 'One or more products not found' });
+        }
+
+        // Validate stock and compute subtotal from DB prices
+        let subtotal = 0;
+        const validatedItems: { productId: string; quantity: number; price: number }[] = [];
+        for (const cartItem of items) {
+            const product = products.find(p => p.id === cartItem.productId);
+            if (!product) return res.status(400).json({ message: `Product ${cartItem.productId} not found` });
+            const qty = parseInt(cartItem.quantity);
+            if (qty < 1) return res.status(400).json({ message: 'Invalid quantity' });
+            if (product.stock < qty) {
+                return res.status(400).json({ message: `Insufficient stock for "${product.title}"` });
+            }
+            subtotal += product.price * qty;
+            validatedItems.push({ productId: product.id, quantity: qty, price: product.price });
+        }
+
+        const delivery = calcDeliveryCharge(paymentMethod, subtotal);
+        const orderTotal = subtotal + delivery;
+
+        let amountToCollectNow = orderTotal;
+        if (paymentMethod === 'cod') {
+            amountToCollectNow = Math.ceil(orderTotal * 0.10);
+        }
+
+        // Create Razorpay order — amount is set by SERVER
+        const razorpayOrder = await razorpay.orders.create({
+            amount: Math.round(amountToCollectNow * 100), // in paise
+            currency: 'INR',
+            receipt: `rcpt_${Date.now()}`,
+            notes: {
+                userId: req.user.id,
+                paymentMethod,
+                subtotal: subtotal.toFixed(2),
+                deliveryCharge: delivery.toFixed(2),
+                orderTotal: orderTotal.toFixed(2),
+            }
+        });
+
+        res.json({
+            razorpayOrderId: razorpayOrder.id,
+            amountToCollectNow,
+            orderTotal,
+            deliveryCharge: delivery,
+            validatedItems, // return server-computed items back to client
+            currency: 'INR',
+        });
+    } catch (error) {
+        console.error('Razorpay Create Order Error:', error);
+        res.status(500).json({ message: 'Failed to create payment order' });
+    }
+});
+
+/**
+ * POST /api/payment/verify
+ * 1. Verifies Razorpay HMAC signature
+ * 2. Re-fetches product prices from DB (never trusts client prices)
+ * 3. Re-computes order total and matches against Razorpay order amount
+ * 4. Guards against duplicate payment IDs
+ * 5. Decrements stock
+ * 6. Sends invoice email
+ */
+app.post('/api/payment/verify', authenticateToken, async (req: any, res) => {
+    if (!assertRazorpayConfigured(res)) return;
+
+    const {
+        razorpay_order_id,
+        razorpay_payment_id,
+        razorpay_signature,
+        items,
+        customerAddress,
+        paymentMethod,
+    } = req.body;
+
+    // Basic input validation
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+        return res.status(400).json({ message: 'Missing payment verification fields' });
+    }
+    if (!items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ message: 'No items provided' });
+    }
+    const requiredAddr = ['name', 'phone', 'street', 'city', 'state', 'pincode'];
+    for (const field of requiredAddr) {
+        if (!customerAddress?.[field]?.trim()) {
+            return res.status(400).json({ message: `Delivery address: ${field} is required` });
+        }
+    }
+
+    try {
+        // 1. HMAC Signature verification — prevents forged payments
+        const body = razorpay_order_id + '|' + razorpay_payment_id;
+        const expectedSignature = crypto
+            .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
+            .update(body)
+            .digest('hex');
+
+        if (expectedSignature !== razorpay_signature) {
+            return res.status(400).json({ message: 'Payment verification failed: invalid signature' });
+        }
+
+        // 2. Duplicate payment guard — prevent same payment creating 2 orders
+        const existingOrder = await prisma.order.findFirst({
+            where: { razorpayPaymentId: razorpay_payment_id }
+        });
+        if (existingOrder) {
+            return res.status(409).json({ message: 'Payment already processed', orderId: existingOrder.id });
+        }
+
+        // 3. Get user for email
+        const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        // 4. Re-fetch REAL prices from DB — never trust client-supplied prices
+        const productIds = items.map((i: any) => i.productId);
+        const products = await prisma.product.findMany({
+            where: { id: { in: productIds } },
+            select: { id: true, price: true, stock: true, title: true }
+        });
+        if (products.length !== productIds.length) {
+            return res.status(400).json({ message: 'One or more products not found' });
+        }
+
+        // 5. Validate stock and build verified items list
+        let subtotal = 0;
+        const verifiedItems: { productId: string; quantity: number; price: number }[] = [];
+        for (const cartItem of items) {
+            const product = products.find(p => p.id === cartItem.productId);
+            if (!product) return res.status(400).json({ message: `Product not found: ${cartItem.productId}` });
+            const qty = parseInt(cartItem.quantity);
+            if (qty < 1) return res.status(400).json({ message: 'Invalid quantity' });
+            if (product.stock < qty) {
+                return res.status(400).json({ message: `"${product.title}" is out of stock` });
+            }
+            subtotal += product.price * qty;
+            verifiedItems.push({ productId: product.id, quantity: qty, price: product.price });
+        }
+
+        // 6. Re-compute totals server-side
+        const delivery = calcDeliveryCharge(paymentMethod, subtotal);
+        const orderTotal = subtotal + delivery;
+        const amountExpected = paymentMethod === 'cod'
+            ? Math.ceil(orderTotal * 0.10)
+            : orderTotal;
+
+        // 7. Verify the Razorpay order amount matches what we expected (tamper check)
+        const rzpOrder = await razorpay.orders.fetch(razorpay_order_id) as any;
+        const amountPaidPaise = rzpOrder.amount as number; // in paise
+        const amountExpectedPaise = Math.round(amountExpected * 100);
+        // Allow ±1 paise rounding tolerance
+        if (Math.abs(amountPaidPaise - amountExpectedPaise) > 1) {
+            console.error(`Amount mismatch: expected ${amountExpectedPaise} paise, got ${amountPaidPaise} paise`);
+            return res.status(400).json({ message: 'Payment amount mismatch. Order rejected.' });
+        }
+
+        const advancePaid = paymentMethod === 'cod' ? amountExpected : null;
+
+        // 8. Create order in DB + decrement stock atomically
+        const order = await prisma.$transaction(async (tx) => {
+            // Decrement stock for each item
+            for (const item of verifiedItems) {
+                await tx.product.update({
+                    where: { id: item.productId },
+                    data: { stock: { decrement: item.quantity } }
+                });
+            }
+
+            return tx.order.create({
+                data: {
+                    userId: req.user.id,
+                    total: orderTotal,
+                    status: 'PENDING',
+                    customerName: customerAddress.name.trim(),
+                    customerPhone: customerAddress.phone.trim(),
+                    streetAddress: customerAddress.street.trim(),
+                    city: customerAddress.city.trim(),
+                    state: customerAddress.state.trim(),
+                    pincode: customerAddress.pincode.trim(),
+                    paymentMethod,
+                    razorpayOrderId: razorpay_order_id,
+                    razorpayPaymentId: razorpay_payment_id,
+                    deliveryCharge: delivery,
+                    advancePaid,
+                    items: {
+                        create: verifiedItems.map(item => ({
+                            productId: item.productId,
+                            quantity: item.quantity,
+                            price: item.price, // DB price, not client price
+                        }))
+                    }
+                },
+                include: { items: { include: { product: true } } }
+            });
+        });
+
+        // 4. Send invoice email (non-blocking)
+        try {
+            const { subject, html } = generateInvoiceEmail(order, user.email);
+            await transporter.sendMail({
+                from: `"Pricekam 🛍️" <${process.env.EMAIL_USER}>`,
+                to: user.email,
+                subject,
+                html,
+            });
+        } catch (emailErr) {
+            console.error('Invoice email failed (non-critical):', emailErr);
+        }
+
+        res.status(201).json(order);
+    } catch (error) {
+        console.error('Payment Verify Error:', error);
+        res.status(500).json({ message: 'Server error during order creation' });
+    }
+});
+
 // --- USER ORDER ROUTES ---
 
-// Create new order
+// Create new order (legacy COD without advance — kept for fallback)
 app.post('/api/orders', authenticateToken, async (req: any, res) => {
-    const { total, items, customerAddress, paymentMethod } = req.body; // items: [{ productId, quantity, price }]
+    const { total, items, customerAddress, paymentMethod } = req.body;
     try {
         const order = await prisma.order.create({
             data: {
@@ -193,19 +532,15 @@ app.get('/api/orders', authenticateToken, async (req: any, res) => {
 
 // --- PRODUCT ROUTES ---
 
-// Get all products
 app.get('/api/products', async (req, res) => {
     try {
-        const products = await prisma.product.findMany({
-            include: { category: true }
-        });
+        const products = await prisma.product.findMany({ include: { category: true } });
         res.json(products);
     } catch (error) {
         res.status(500).json({ message: 'Server error' });
     }
 });
 
-// Get product by ID
 app.get('/api/products/:id', async (req, res) => {
     try {
         const product = await prisma.product.findUnique({
@@ -231,20 +566,16 @@ app.get('/api/categories', async (req, res) => {
     }
 });
 
-// Create Category (Admin)
 app.post('/api/categories', authenticateToken, authorizeRoles(['ADMIN']), async (req, res) => {
     const { name, icon, color } = req.body;
     try {
-        const category = await prisma.category.create({
-            data: { name, icon, color }
-        });
+        const category = await prisma.category.create({ data: { name, icon, color } });
         res.status(201).json(category);
     } catch (error) {
         res.status(500).json({ message: 'Server error' });
     }
 });
 
-// Update Category (Admin)
 app.put('/api/categories/:id', authenticateToken, authorizeRoles(['ADMIN']), async (req, res) => {
     const { name, icon, color } = req.body;
     try {
@@ -258,17 +589,12 @@ app.put('/api/categories/:id', authenticateToken, authorizeRoles(['ADMIN']), asy
     }
 });
 
-// Delete Category (Admin)
 app.delete('/api/categories/:id', authenticateToken, authorizeRoles(['ADMIN']), async (req, res) => {
     try {
-        const productCount = await prisma.product.count({
-            where: { categoryId: req.params.id }
-        });
-
+        const productCount = await prisma.product.count({ where: { categoryId: req.params.id } });
         if (productCount > 0) {
             return res.status(400).json({ message: 'Cannot delete category with associated products' });
         }
-
         await prisma.category.delete({ where: { id: req.params.id } });
         res.json({ message: 'Category deleted' });
     } catch (error) {
@@ -278,14 +604,15 @@ app.delete('/api/categories/:id', authenticateToken, authorizeRoles(['ADMIN']), 
 
 // --- ADMIN PRODUCT ACTIONS ---
 
-// Create product
 app.post('/api/products', authenticateToken, authorizeRoles(['ADMIN']), async (req, res) => {
     const { title, description, price, originalPrice, image, categoryId, brand, ageGroup, stock, isFeatured } = req.body;
     try {
         const product = await prisma.product.create({
             data: {
-                title, description, price: parseFloat(price), originalPrice: originalPrice ? parseFloat(originalPrice) : null,
-                image, categoryId, brand, ageGroup, stock: parseInt(stock) || 0, isFeatured: !!isFeatured
+                title, description, price: parseFloat(price),
+                originalPrice: originalPrice ? parseFloat(originalPrice) : null,
+                image, categoryId, brand, ageGroup,
+                stock: parseInt(stock) || 0, isFeatured: !!isFeatured
             }
         });
         res.status(201).json(product);
@@ -294,15 +621,16 @@ app.post('/api/products', authenticateToken, authorizeRoles(['ADMIN']), async (r
     }
 });
 
-// Update product
 app.put('/api/products/:id', authenticateToken, authorizeRoles(['ADMIN']), async (req, res) => {
     const { title, description, price, originalPrice, image, categoryId, brand, ageGroup, stock, isFeatured } = req.body;
     try {
         const product = await prisma.product.update({
             where: { id: req.params.id },
             data: {
-                title, description, price: parseFloat(price), originalPrice: originalPrice ? parseFloat(originalPrice) : null,
-                image, categoryId, brand, ageGroup, stock: parseInt(stock) || 0, isFeatured: !!isFeatured
+                title, description, price: parseFloat(price),
+                originalPrice: originalPrice ? parseFloat(originalPrice) : null,
+                image, categoryId, brand, ageGroup,
+                stock: parseInt(stock) || 0, isFeatured: !!isFeatured
             }
         });
         res.json(product);
@@ -311,7 +639,6 @@ app.put('/api/products/:id', authenticateToken, authorizeRoles(['ADMIN']), async
     }
 });
 
-// Delete product
 app.delete('/api/products/:id', authenticateToken, authorizeRoles(['ADMIN']), async (req, res) => {
     try {
         await prisma.product.delete({ where: { id: req.params.id } });
@@ -321,22 +648,16 @@ app.delete('/api/products/:id', authenticateToken, authorizeRoles(['ADMIN']), as
     }
 });
 
-// --- CLOUDINARY UPLOAD ROUTE ---
+// --- CLOUDINARY UPLOAD ---
 app.post('/api/upload', authenticateToken, authorizeRoles(['ADMIN']), upload.single('image'), async (req: any, res) => {
     try {
-        if (!req.file) {
-            return res.status(400).json({ message: 'No file uploaded' });
-        }
-
-        // Convert buffer to data URI for Cloudinary
+        if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
         const b64 = Buffer.from(req.file.buffer).toString('base64');
         const dataURI = "data:" + req.file.mimetype + ";base64," + b64;
-
         const result = await cloudinary.uploader.upload(dataURI, {
             resource_type: 'auto',
             folder: 'joyful-cart-products'
         });
-
         res.json({ url: result.secure_url });
     } catch (error) {
         console.error('Upload Error:', error);
@@ -346,7 +667,6 @@ app.post('/api/upload', authenticateToken, authorizeRoles(['ADMIN']), upload.sin
 
 // --- ADMIN ORDER ACTIONS ---
 
-// Get all orders
 app.get('/api/admin/orders', authenticateToken, authorizeRoles(['ADMIN']), async (req, res) => {
     try {
         const orders = await prisma.order.findMany({
@@ -359,7 +679,6 @@ app.get('/api/admin/orders', authenticateToken, authorizeRoles(['ADMIN']), async
     }
 });
 
-// Update order status
 app.put('/api/admin/orders/:id', authenticateToken, authorizeRoles(['ADMIN']), async (req, res) => {
     const { status } = req.body;
     try {
@@ -376,7 +695,6 @@ app.put('/api/admin/orders/:id', authenticateToken, authorizeRoles(['ADMIN']), a
 
 // --- ADMIN CUSTOMER ACTIONS ---
 
-// Get all users
 app.get('/api/admin/users', authenticateToken, authorizeRoles(['ADMIN']), async (req, res) => {
     try {
         const users = await prisma.user.findMany({
@@ -411,7 +729,7 @@ app.get('/api/admin/stats', authenticateToken, authorizeRoles(['ADMIN']), async 
             totalOrders,
             totalRevenue: totalRevenue._sum.total || 0,
             recentOrders,
-            revenueChange: "+12.5%", // These could be calculated by comparing with last month
+            revenueChange: "+12.5%",
             ordersChange: "+8.2%",
             productsChange: `+${totalProducts > 5 ? '5' : totalProducts}`,
             customersChange: "+15.3%"
@@ -424,7 +742,6 @@ app.get('/api/admin/stats', authenticateToken, authorizeRoles(['ADMIN']), async 
 
 app.get('/api/admin/analytics', authenticateToken, authorizeRoles(['ADMIN']), async (req, res) => {
     try {
-        // Simple monthly revenue for the last 6 months (mocked with logic)
         const orders = await prisma.order.findMany({
             where: { createdAt: { gte: new Date(new Date().setMonth(new Date().getMonth() - 6)) } },
             select: { total: true, createdAt: true }
@@ -455,11 +772,11 @@ app.get('/api/admin/analytics', authenticateToken, authorizeRoles(['ADMIN']), as
     }
 });
 
-// Catch-all for 404s
+// 404 catch-all
 app.use((req, res) => {
     res.status(404).json({ message: `Route ${req.method} ${req.url} not found` });
 });
 
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`🚀 Server running on port ${PORT}`);
 });

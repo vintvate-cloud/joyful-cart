@@ -10,8 +10,9 @@ datasource db {
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
-  password  String
+  password  String?  // optional: null for Google-only users
   name      String?
+  googleId  String?  @unique
   role      Role     @default(CUSTOMER)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -66,9 +67,13 @@ model Order {
   city            String?
   state           String?
   pincode         String?
-  paymentMethod   String?     // "card", "upi", "cod"
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  paymentMethod      String?     // "card", "upi", "cod"
+  razorpayOrderId    String?     // Razorpay order ID
+  razorpayPaymentId  String?     // Razorpay payment ID after success
+  deliveryCharge     Float?      @default(100) // Delivery charge applied
+  advancePaid        Float?      // For COD: advance amount paid via Razorpay
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
 }
 
 enum OrderStatus {

@@ -1,19 +1,28 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { CreditCard, Banknote, Smartphone, ArrowLeft, Check, ShieldCheck, Loader2 } from "lucide-react";
+import { CreditCard, Banknote, Smartphone, ArrowLeft, Check, ShieldCheck, Loader2, Truck, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { useCart } from "@/context/CartContext";
-
 import { useAuth } from "@/context/AuthContext";
 import OrderInvoice from "@/components/orders/OrderInvoice";
 
 type PaymentMethod = "card" | "upi" | "cod";
 
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
+
+const DELIVERY_CHARGE = 100;
+const FREE_DELIVERY_THRESHOLD = 2000; // Only for card payments
+
 const CheckoutPage = () => {
   const { items, total, clearCart } = useCart();
   const { user } = useAuth();
+
   const [step, setStep] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
   const [orderPlaced, setOrderPlaced] = useState(false);
@@ -22,64 +31,26 @@ const CheckoutPage = () => {
   const [placedOrder, setPlacedOrder] = useState<any>(null);
   const [showInvoice, setShowInvoice] = useState(false);
 
-  // Form states
   const [address, setAddress] = useState({ name: "", phone: "", street: "", city: "", state: "", pincode: "" });
-  const [cardDetails, setCardDetails] = useState({ number: "", expiry: "", cvv: "", name: "" });
-  const [upiId, setUpiId] = useState("");
 
-  const codCharge = paymentMethod === "cod" ? total * 0.02 : 0; // 2% COD charge
-  const shipping = total > 499 ? 0 : 49;
-  const grandTotal = total + codCharge + shipping;
+  // --- DELIVERY CHARGE LOGIC ---
+  // ₹100 for all modes; free for card if subtotal >= ₹2000
+  const deliveryCharge = paymentMethod === "card" && total >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_CHARGE;
+  const grandTotal = total + deliveryCharge;
+  const advanceAmount = paymentMethod === "cod" ? Math.ceil(grandTotal * 0.10) : grandTotal;
+  const balanceDueOnDelivery = paymentMethod === "cod" ? grandTotal - advanceAmount : 0;
 
-  const handlePlaceOrder = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // Final validation
-    if (paymentMethod === "card") {
-      if (!cardDetails.number || !cardDetails.expiry || !cardDetails.cvv || !cardDetails.name) {
-        alert("Please fill all card details");
-        return;
-      }
-    } else if (paymentMethod === "upi") {
-      if (!upiId) {
-        alert("Please enter your UPI ID");
-        return;
-      }
+  // --- Load Razorpay Script ---
+  useEffect(() => {
+    const scriptId = "razorpay-sdk";
+    if (!document.getElementById(scriptId)) {
+      const script = document.createElement("script");
+      script.id = scriptId;
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.async = true;
+      document.body.appendChild(script);
     }
-
-    setIsPlacing(true);
-
-    try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
-      const res = await fetch(`${API_URL}/orders`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          total: grandTotal,
-          paymentMethod,
-          customerAddress: address,
-          items: items.map(item => ({
-            productId: item.product.id,
-            quantity: item.quantity,
-            price: item.product.price
-          }))
-        }),
-        credentials: 'include'
-      });
-
-      if (!res.ok) throw new Error('Failed to place order');
-      const data = await res.json();
-      setOrderId(data.id);
-      setPlacedOrder(data);
-      setOrderPlaced(true);
-      if (typeof clearCart === 'function') clearCart();
-    } catch (error) {
-      console.error('Checkout Error:', error);
-      alert("Failed to place order. Please try again.");
-    } finally {
-      setIsPlacing(false);
-    }
-  };
+  }, []);
 
   const validateAddress = () => {
     const { name, phone, street, city, state, pincode } = address;
@@ -88,6 +59,104 @@ const CheckoutPage = () => {
       return false;
     }
     return true;
+  };
+
+  const handlePlaceOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!window.Razorpay) {
+      alert("Payment system is loading. Please wait a moment and try again.");
+      return;
+    }
+
+    setIsPlacing(true);
+
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
+      const RAZORPAY_KEY = import.meta.env.VITE_RAZORPAY_KEY_ID || "";
+
+      // Step 1: Create Razorpay order (server verifies prices from DB)
+      const createRes = await fetch(`${API_URL}/payment/create-order`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paymentMethod,
+          items: items.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
+        }),
+        credentials: "include",
+      });
+
+      if (!createRes.ok) {
+        const err = await createRes.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to initiate payment");
+      }
+      const orderData = await createRes.json();
+
+      // Step 2: Open Razorpay checkout modal
+      await new Promise<void>((resolve, reject) => {
+        const options: any = {
+          key: RAZORPAY_KEY,
+          amount: orderData.amountToCollectNow * 100,
+          currency: "INR",
+          name: "Pricekam 🛍️",
+          description: paymentMethod === "cod"
+            ? `10% Advance Payment (₹${orderData.amountToCollectNow})`
+            : `Full Payment ₹${orderData.orderTotal}`,
+          order_id: orderData.razorpayOrderId,
+          prefill: {
+            name: address.name || user?.name || "",
+            contact: address.phone || "",
+          },
+          theme: { color: "#7c3aed" },
+          handler: async (response: any) => {
+            // Step 3: Verify payment and create order in DB
+            try {
+              const verifyRes = await fetch(`${API_URL}/payment/verify`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                  // Use server-returned validatedItems (DB prices) — never send client prices
+                  items: orderData.validatedItems,
+                  customerAddress: address,
+                  paymentMethod,
+                }),
+                credentials: "include",
+              });
+
+              if (!verifyRes.ok) {
+                const err = await verifyRes.json().catch(() => ({}));
+                throw new Error(err.message || "Order creation failed after payment");
+              }
+              const savedOrder = await verifyRes.json();
+              setOrderId(savedOrder.id);
+              setPlacedOrder(savedOrder);
+              setOrderPlaced(true);
+              if (typeof clearCart === "function") clearCart();
+              resolve();
+            } catch (err) {
+              reject(err);
+            }
+          },
+          modal: {
+            ondismiss: () => {
+              reject(new Error("Payment cancelled by user"));
+            },
+          },
+        };
+
+        const rzp = new window.Razorpay(options);
+        rzp.open();
+      });
+    } catch (error: any) {
+      if (error?.message !== "Payment cancelled by user") {
+        console.error("Checkout Error:", error);
+        alert("Payment failed. Please try again.");
+      }
+    } finally {
+      setIsPlacing(false);
+    }
   };
 
   if (items.length === 0 && !orderPlaced) {
@@ -118,14 +187,33 @@ const CheckoutPage = () => {
             </div>
           </motion.div>
           <h1 className="text-4xl font-display font-black mb-4">Victory is Yours! 🏆</h1>
-          <p className="text-muted-foreground font-body mb-2 text-lg">Your order #{orderId?.slice(-8).toUpperCase()} has been successfully placed.</p>
-          <p className="text-sm text-muted-foreground font-body mb-10 max-w-md mx-auto">
-            Payment Method: <span className="text-foreground font-black uppercase tracking-widest text-[10px]">{paymentMethod === "cod" ? "Cash on Delivery" : paymentMethod === "upi" ? "UPI" : "Card"}</span> •
-            Total: <span className="text-primary font-black">₹{grandTotal.toFixed(2)}</span>
+          <p className="text-muted-foreground font-body mb-2 text-lg">
+            Order #{orderId?.slice(-8).toUpperCase()} placed successfully!
           </p>
 
+          {paymentMethod === "cod" ? (
+            <div className="max-w-sm mx-auto mb-8 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-left">
+              <p className="text-xs font-black uppercase tracking-widest text-amber-600 mb-2">Partial COD Details</p>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-muted-foreground">Advance Paid (Razorpay)</span>
+                <span className="font-black text-emerald-600">₹{advanceAmount.toFixed(2)} ✓</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Balance Due on Delivery</span>
+                <span className="font-black text-amber-600">₹{balanceDueOnDelivery.toFixed(2)}</span>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground font-body mb-8 max-w-md mx-auto">
+              Payment Method: <span className="text-foreground font-black uppercase tracking-widest text-[10px]">
+                {paymentMethod === "upi" ? "UPI" : "Card"}
+              </span> •
+              Total Paid: <span className="text-primary font-black">₹{grandTotal.toFixed(2)}</span>
+            </p>
+          )}
+
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link to={`/profile?tab=orders`} className="w-full sm:w-auto px-8 py-4 bg-primary text-primary-foreground rounded-[2rem] font-display font-black text-sm hover:scale-105 transition-all shadow-xl shadow-primary/20">
+            <Link to="/profile?tab=orders" className="w-full sm:w-auto px-8 py-4 bg-primary text-primary-foreground rounded-[2rem] font-display font-black text-sm hover:scale-105 transition-all shadow-xl shadow-primary/20">
               Track Order
             </Link>
             <button
@@ -137,7 +225,7 @@ const CheckoutPage = () => {
           </div>
 
           <p className="mt-12 text-muted-foreground font-body text-sm animate-pulse">
-            An invoice for this order has been generated automatically for you!
+            📧 An invoice has been emailed to your registered email address!
           </p>
 
           <AnimatePresence>
@@ -169,7 +257,9 @@ const CheckoutPage = () => {
               <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-display font-black transition-all ${step >= s ? "bg-primary text-white shadow-lg shadow-primary/25" : "bg-muted text-muted-foreground"}`}>
                 {step > s ? <Check className="h-5 w-5" /> : s}
               </div>
-              <span className={`text-[10px] font-black uppercase tracking-widest hidden sm:block ${step >= s ? "text-foreground" : "text-muted-foreground"}`}>{s === 1 ? "Delivery Details" : "Final Step: Payment"}</span>
+              <span className={`text-[10px] font-black uppercase tracking-widest hidden sm:block ${step >= s ? "text-foreground" : "text-muted-foreground"}`}>
+                {s === 1 ? "Delivery Details" : "Secure Payment"}
+              </span>
               {s < 2 && <div className={`w-16 h-[2px] rounded-full transition-all ${step > s ? "bg-primary" : "bg-border"}`} />}
             </div>
           ))}
@@ -217,12 +307,10 @@ const CheckoutPage = () => {
                       </div>
                     </div>
                     <button
-                      onClick={() => {
-                        if (validateAddress()) setStep(2);
-                      }}
+                      onClick={() => { if (validateAddress()) setStep(2); }}
                       className="mt-10 w-full md:w-auto px-10 py-4 bg-primary text-white rounded-[2rem] font-display font-black text-sm hover:scale-105 transition-all shadow-xl shadow-primary/20"
                     >
-                      Process to Payment
+                      Continue to Payment →
                     </button>
                   </div>
                 </motion.div>
@@ -235,28 +323,51 @@ const CheckoutPage = () => {
                       <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-xl">💳</div>
                       <div>
                         <h2 className="font-display font-black text-xl">Secure Checkout</h2>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Safe & Encrypted Payments</p>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Powered by Razorpay — Safe & Encrypted</p>
                       </div>
                     </div>
 
+                    {/* Payment Method Selection */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
                       {([
-                        { id: "card" as const, label: "Credit/Debit", icon: CreditCard, desc: "Global Cards" },
-                        { id: "upi" as const, label: "UPI Pay", icon: Smartphone, desc: "Instant GPay/PPe" },
-                        { id: "cod" as const, label: "Cash On Delivery", icon: Banknote, desc: "+2% Service Fee" },
+                        {
+                          id: "card" as const,
+                          label: "Card",
+                          icon: CreditCard,
+                          desc: total >= FREE_DELIVERY_THRESHOLD ? "🎉 Free Delivery!" : "Debit / Credit Card",
+                          badge: total >= FREE_DELIVERY_THRESHOLD ? "No Delivery Fee" : null,
+                        },
+                        {
+                          id: "upi" as const,
+                          label: "UPI",
+                          icon: Zap,
+                          desc: "GPay / PhonePe / BHIM",
+                          badge: null,
+                        },
+                        {
+                          id: "cod" as const,
+                          label: "Part COD",
+                          icon: Banknote,
+                          desc: `Pay ₹${Math.ceil((total + DELIVERY_CHARGE) * 0.10)} now, rest on delivery`,
+                          badge: "10% Advance",
+                        },
                       ]).map((pm) => (
                         <button
                           key={pm.id}
                           type="button"
                           onClick={() => setPaymentMethod(pm.id)}
-                          className={`p-6 rounded-[2rem] border-2 text-left transition-all relative overflow-hidden group ${paymentMethod === pm.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
-                            }`}
+                          className={`p-5 rounded-[2rem] border-2 text-left transition-all relative overflow-hidden group ${paymentMethod === pm.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"}`}
                         >
+                          {pm.badge && (
+                            <span className="absolute top-3 right-3 text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full bg-primary/10 text-primary">
+                              {pm.badge}
+                            </span>
+                          )}
                           <pm.icon className={`h-6 w-6 mb-3 ${paymentMethod === pm.id ? "text-primary" : "text-muted-foreground"}`} />
                           <p className="font-display font-black text-xs text-foreground uppercase tracking-widest">{pm.label}</p>
-                          <p className="text-[10px] text-muted-foreground font-body font-medium mt-1">{pm.desc}</p>
+                          <p className="text-[10px] text-muted-foreground font-body font-medium mt-1 pr-10">{pm.desc}</p>
                           {paymentMethod === pm.id && (
-                            <motion.div layoutId="activeRule" className="absolute top-4 right-4 text-primary">
+                            <motion.div layoutId="activeRule" className="absolute bottom-3 right-3 text-primary">
                               <Check className="h-4 w-4" />
                             </motion.div>
                           )}
@@ -264,76 +375,96 @@ const CheckoutPage = () => {
                       ))}
                     </div>
 
-                    <form onSubmit={handlePlaceOrder}>
-                      <AnimatePresence mode="wait">
-                        {paymentMethod === "card" && (
-                          <motion.div key="card-fields" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="space-y-6 overflow-hidden">
-                            <div className="space-y-2">
-                              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground pl-4">Card Number*</label>
-                              <input required placeholder="0000 0000 0000 0000" value={cardDetails.number} onChange={(e) => setCardDetails({ ...cardDetails, number: e.target.value })} className="w-full px-6 py-4 rounded-2xl bg-accent/50 border border-transparent focus:border-primary/50 outline-none text-sm font-body tracking-[0.2em]" />
-                            </div>
-                            <div className="grid grid-cols-2 gap-6">
-                              <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground pl-4">Expiry Date*</label>
-                                <input required placeholder="MM/YY" value={cardDetails.expiry} onChange={(e) => setCardDetails({ ...cardDetails, expiry: e.target.value })} className="w-full px-6 py-4 rounded-2xl bg-accent/50 border border-transparent focus:border-primary/50 outline-none text-sm font-body" />
+                    {/* Payment Info Panels */}
+                    <AnimatePresence mode="wait">
+                      {paymentMethod === "card" && (
+                        <motion.div key="card-info" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+                          <div className="bg-blue-500/5 border border-blue-500/20 rounded-[2rem] p-6">
+                            <p className="text-xs font-display font-black text-blue-600 mb-2 uppercase tracking-widest">💳 Razorpay Secure Card Checkout</p>
+                            <p className="text-[10px] text-muted-foreground font-body leading-relaxed">
+                              Clicking "Pay Now" will open Razorpay's secure checkout modal where you can enter your card details safely. Supports Visa, Mastercard, Amex, and RuPay.
+                            </p>
+                            {total >= FREE_DELIVERY_THRESHOLD && (
+                              <div className="mt-4 flex items-center gap-2 p-3 bg-emerald-500/10 rounded-2xl">
+                                <Truck className="h-4 w-4 text-emerald-600" />
+                                <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Free delivery unlocked on orders ≥ ₹2000!</span>
                               </div>
-                              <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground pl-4">CVV*</label>
-                                <input required placeholder="123" type="password" maxLength={4} value={cardDetails.cvv} onChange={(e) => setCardDetails({ ...cardDetails, cvv: e.target.value })} className="w-full px-6 py-4 rounded-2xl bg-accent/50 border border-transparent focus:border-primary/50 outline-none text-sm font-body" />
-                              </div>
-                            </div>
-                            <div className="space-y-2">
-                              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground pl-4">Cardholder Name*</label>
-                              <input required placeholder="Name as on card" value={cardDetails.name} onChange={(e) => setCardDetails({ ...cardDetails, name: e.target.value })} className="w-full px-6 py-4 rounded-2xl bg-accent/50 border border-transparent focus:border-primary/50 outline-none text-sm font-body" />
-                            </div>
-                          </motion.div>
-                        )}
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
 
-                        {paymentMethod === "upi" && (
-                          <motion.div key="upi-fields" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="space-y-6 overflow-hidden">
-                            <div className="space-y-2">
-                              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground pl-4">Unified Payments Interface (UPI)*</label>
-                              <input required placeholder="yourname@upi" value={upiId} onChange={(e) => setUpiId(e.target.value)} className="w-full px-6 py-4 rounded-2xl bg-accent/50 border border-transparent focus:border-primary/50 outline-none text-sm font-body" />
-                            </div>
-                            <div className="flex flex-wrap gap-3">
+                      {paymentMethod === "upi" && (
+                        <motion.div key="upi-info" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+                          <div className="bg-violet-500/5 border border-violet-500/20 rounded-[2rem] p-6">
+                            <p className="text-xs font-display font-black text-violet-600 mb-2 uppercase tracking-widest">⚡ Instant UPI Payment via Razorpay</p>
+                            <p className="text-[10px] text-muted-foreground font-body leading-relaxed">
+                              Razorpay will open with all UPI options: GPay, PhonePe, Paytm, BHIM, and any UPI ID. Enter your UPI PIN to complete payment instantly.
+                            </p>
+                            <div className="flex flex-wrap gap-2 mt-4">
                               {["GPay", "PhonePe", "Paytm", "BHIM"].map((app) => (
-                                <button key={app} type="button" className="px-6 py-3 rounded-2xl border border-border text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:border-primary hover:text-primary transition-all">{app}</button>
+                                <span key={app} className="px-3 py-1.5 rounded-xl border border-border text-[10px] font-black uppercase tracking-widest text-muted-foreground">{app}</span>
                               ))}
                             </div>
-                          </motion.div>
-                        )}
+                          </div>
+                        </motion.div>
+                      )}
 
-                        {paymentMethod === "cod" && (
-                          <motion.div key="cod-fields" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-[2rem] p-6">
-                              <p className="text-xs font-display font-black text-emerald-600 mb-2 uppercase tracking-widest">💰 Partial Cash on Delivery Activated</p>
-                              <p className="text-[10px] text-muted-foreground font-body font-medium leading-relaxed">
-                                Experience hassle-free delivery with our verified COD option. A small 2% convenience fee is applied to maintain our logistics chain.
-                              </p>
-                              <div className="flex items-center justify-between mt-4 pt-4 border-t border-emerald-500/10">
-                                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Service Charge</span>
-                                <span className="text-sm font-display font-black text-emerald-600">₹{codCharge.toFixed(2)}</span>
+                      {paymentMethod === "cod" && (
+                        <motion.div key="cod-info" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+                          <div className="bg-amber-500/5 border border-amber-500/20 rounded-[2rem] p-6">
+                            <p className="text-xs font-display font-black text-amber-600 mb-3 uppercase tracking-widest">💰 Partial COD — 10% Advance via Razorpay</p>
+                            <p className="text-[10px] text-muted-foreground font-body leading-relaxed mb-4">
+                              Pay a small 10% advance securely via Razorpay now. The remaining balance is collected when your order arrives at your door.
+                            </p>
+                            <div className="space-y-2 pt-4 border-t border-amber-500/10">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Pay Now (Advance 10%)</span>
+                                <span className="text-sm font-display font-black text-amber-600">₹{advanceAmount.toFixed(2)}</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Pay on Delivery (Balance)</span>
+                                <span className="text-sm font-display font-black text-foreground">₹{balanceDueOnDelivery.toFixed(2)}</span>
                               </div>
                             </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
-                      <div className="flex flex-col sm:flex-row items-center gap-4 mt-10">
-                        <button type="button" onClick={() => setStep(1)} className="w-full sm:w-auto px-8 py-4 bg-accent text-foreground rounded-[2rem] font-display font-black text-sm hover:scale-105 transition-all">
-                          Review Address
+                    {/* Razorpay Logo Trust Indicator */}
+                    <div className="mt-6 flex items-center gap-3 p-3 bg-muted/30 rounded-2xl">
+                      <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0" />
+                      <p className="text-[10px] font-black uppercase tracking-[0.1em] text-muted-foreground">
+                        Payments secured by Razorpay · PCI DSS Compliant · 256-bit SSL
+                      </p>
+                    </div>
+
+                    <form onSubmit={handlePlaceOrder}>
+                      <div className="flex flex-col sm:flex-row items-center gap-4 mt-8">
+                        <button
+                          type="button"
+                          onClick={() => setStep(1)}
+                          className="w-full sm:w-auto px-8 py-4 bg-accent text-foreground rounded-[2rem] font-display font-black text-sm hover:scale-105 transition-all"
+                        >
+                          ← Review Address
                         </button>
                         <button
                           disabled={isPlacing}
                           type="submit"
-                          className="flex-1 w-full py-4 bg-primary text-white rounded-[2rem] font-display font-black text-sm hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-primary/25 flex items-center justify-center gap-3 disabled:opacity-50"
+                          className="flex-1 w-full py-4 bg-primary text-white rounded-[2rem] font-display font-black text-sm hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-primary/25 flex items-center justify-center gap-3 disabled:opacity-60"
                         >
                           {isPlacing ? (
-                            <Loader2 className="h-5 w-5 animate-spin" />
+                            <>
+                              <Loader2 className="h-5 w-5 animate-spin" />
+                              Processing…
+                            </>
                           ) : (
                             <>
                               <ShieldCheck className="h-5 w-5" />
-                              Finalize Order • ₹{grandTotal.toFixed(2)}
+                              {paymentMethod === "cod"
+                                ? `Pay Advance ₹${advanceAmount.toFixed(0)} via Razorpay`
+                                : `Pay ₹${grandTotal.toFixed(2)} via Razorpay`}
                             </>
                           )}
                         </button>
@@ -345,10 +476,10 @@ const CheckoutPage = () => {
             </AnimatePresence>
           </div>
 
-          {/* Order Summary */}
+          {/* Order Summary Sidebar */}
           <div className="lg:col-span-1">
             <div className="bg-card rounded-[2.5rem] border border-border p-8 sticky top-24 shadow-sm">
-              <h3 className="font-display font-black text-xl mb-8">Cart Contents</h3>
+              <h3 className="font-display font-black text-xl mb-8">Order Summary</h3>
               <div className="space-y-6 mb-8 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
                 {items.map((item) => (
                   <div key={item.product.id} className="flex items-center gap-4 group">
@@ -357,7 +488,7 @@ const CheckoutPage = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-display font-bold text-foreground truncate group-hover:text-primary transition-colors">{item.product.title}</p>
-                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1">Qty: {item.quantity} • ₹{item.product.price}</p>
+                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1">Qty: {item.quantity} · ₹{item.product.price}</p>
                     </div>
                     <p className="text-sm font-display font-black text-foreground">₹{(item.product.price * item.quantity).toFixed(2)}</p>
                   </div>
@@ -370,13 +501,26 @@ const CheckoutPage = () => {
                   <span className="text-foreground">₹{total.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                  <span>Logistics</span>
-                  <span className={shipping === 0 ? "text-emerald-500" : "text-foreground"}>{shipping === 0 ? "Complimentary" : `₹${shipping}`}</span>
+                  <span>Delivery</span>
+                  <span className={deliveryCharge === 0 ? "text-emerald-500" : "text-foreground"}>
+                    {deliveryCharge === 0 ? "FREE 🎉" : `₹${deliveryCharge}`}
+                  </span>
                 </div>
-                {codCharge > 0 && (
-                  <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                    <span>COD Processing</span>
-                    <span className="text-foreground">₹{codCharge.toFixed(2)}</span>
+                {paymentMethod === "card" && total < FREE_DELIVERY_THRESHOLD && (
+                  <div className="text-[10px] text-primary/70 font-body pl-1">
+                    Add ₹{(FREE_DELIVERY_THRESHOLD - total).toFixed(0)} more to get free delivery!
+                  </div>
+                )}
+                {paymentMethod === "cod" && (
+                  <div className="space-y-2 pt-3 border-t border-dashed border-border">
+                    <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                      <span className="text-muted-foreground">Advance (10%)</span>
+                      <span className="text-amber-500">₹{advanceAmount.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                      <span className="text-muted-foreground">Balance on Delivery</span>
+                      <span className="text-foreground">₹{balanceDueOnDelivery.toFixed(2)}</span>
+                    </div>
                   </div>
                 )}
                 <div className="flex justify-between items-center font-display font-black text-foreground text-xl pt-4 border-t border-border">
@@ -385,9 +529,9 @@ const CheckoutPage = () => {
                 </div>
               </div>
 
-              <div className="mt-8 flex items-center gap-3 p-4 bg-muted/50 rounded-2xl">
+              <div className="mt-6 flex items-center gap-3 p-4 bg-muted/50 rounded-2xl">
                 <ShieldCheck className="h-5 w-5 text-emerald-500" />
-                <p className="text-[10px] font-black uppercase tracking-[0.1em] text-muted-foreground">SSL Secure Checkout Enabled</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.1em] text-muted-foreground">Razorpay Secured Checkout</p>
               </div>
             </div>
           </div>

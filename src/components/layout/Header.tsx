@@ -51,9 +51,9 @@ const Header = () => {
     <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-md border-b border-border shadow-sm">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-4">
         <Link to="/" className="flex items-center gap-2 shrink-0 group">
-          <span className="text-3xl transition-transform group-hover:rotate-12">🧸</span>
+          <span className="text-3xl transition-transform group-hover:rotate-12">🛍️</span>
           <span className="text-2xl font-display font-black tracking-tight text-primary">
-            Joyful<span className="text-secondary">Cart</span>
+            Price<span className="text-secondary">kam</span>
           </span>
         </Link>
 
@@ -61,7 +61,7 @@ const Header = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
           <input
             type="text"
-            placeholder="Search JoyLand for toys, clothes..."
+            placeholder="Search Pricekam for toys, clothes..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-muted border-transparent border-2 outline-none text-sm font-body focus:bg-card focus:border-primary/20 transition-all font-medium"

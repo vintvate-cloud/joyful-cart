@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Mail, Lock, User, Eye, EyeOff, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AuthLayout from "@/components/auth/AuthLayout";
+import GoogleButton from "@/components/auth/GoogleButton";
 import { useAuth } from "@/context/AuthContext";
 
 const SignupPage = () => {
@@ -57,7 +58,7 @@ const SignupPage = () => {
   return (
     <AuthLayout
       title="Create Account"
-      subtitle="Join Joyful Cart for the best kids products"
+      subtitle="Join Pricekam for the best kids products"
       emoji="🎉"
     >
       <AnimatePresence mode="wait">
@@ -162,7 +163,16 @@ const SignupPage = () => {
         </button>
       </form>
 
-      <div className="mt-8 text-center text-sm font-body text-muted-foreground font-medium">
+      {/* Divider */}
+      <div className="my-6 flex items-center gap-4">
+        <div className="flex-1 h-px bg-border" />
+        <span className="text-xs font-body text-muted-foreground font-semibold uppercase tracking-widest">or</span>
+        <div className="flex-1 h-px bg-border" />
+      </div>
+
+      <GoogleButton label="Sign up with Google" />
+
+      <div className="mt-6 text-center text-sm font-body text-muted-foreground font-medium">
         Already have an account?{" "}
         <Link to="/login" className="text-primary font-bold hover:underline decoration-2 underline-offset-4 transition-all hover:text-primary/80">Sign In</Link>
       </div>
