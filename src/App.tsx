@@ -25,6 +25,7 @@ import CheckoutPage from "./pages/CheckoutPage";
 import SearchPage from "./pages/SearchPage";
 import MyOrdersPage from "./pages/MyOrders";
 import AuthCallbackPage from "./pages/AuthCallbackPage";
+import SetPasswordPage from "./pages/SetPasswordPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -58,6 +59,7 @@ const App = () => (
                 <Route path="/search" element={<SearchPage />} />
                 <Route path="/my-orders" element={<MyOrdersPage />} />
                 <Route path="/auth/callback" element={<AuthCallbackPage />} />
+                <Route path="/set-password" element={<SetPasswordPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

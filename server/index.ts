@@ -182,82 +182,105 @@ app.post('/api/auth/supabase', async (req, res) => {
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    if (!supabaseUrl || !serviceRoleKey || supabaseUrl.includes('placeholder')) {
+    if (!supabaseUrl || !serviceRoleKey || serviceRoleKey.includes('your_')) {
         return res.status(503).json({ message: 'Supabase not configured on server' });
     }
 
     try {
+        // 1. Verify token with Supabase
         const { createClient } = await import('@supabase/supabase-js');
         const adminClient = createClient(supabaseUrl, serviceRoleKey);
         const { data: { user: sbUser }, error: sbError } = await adminClient.auth.getUser(access_token);
 
         if (sbError || !sbUser) {
-            console.error('Supabase token verification failed:', sbError);
-            return res.status(401).json({ message: 'Invalid or expired Supabase token', details: sbError?.message });
+            console.error('[Google Auth] Token verification failed:', sbError?.message);
+            return res.status(401).json({ message: 'Invalid or expired token', details: sbError?.message });
         }
 
         const email = sbUser.email;
-        const phone = sbUser.phone;
-        const name = sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || email?.split('@')[0] || phone;
-        const isGoogle = sbUser.app_metadata?.provider === 'google' || sbUser.identities?.some(id => id.provider === 'google');
+        const name = sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || sbUser.user_metadata?.email?.split('@')[0] || email?.split('@')[0];
+        const isGoogle = sbUser.app_metadata?.provider === 'google' || sbUser.identities?.some((id: any) => id.provider === 'google');
         const googleId = isGoogle ? sbUser.id : null;
-        const supabaseId = sbUser.id;
 
-        if (!email && !phone) return res.status(400).json({ message: 'No email or phone from Supabase' });
+        if (!email) {
+            return res.status(400).json({ message: 'No email address returned from Google' });
+        }
 
-        // Securely hash local password if provided
-        let hashedPassword = null;
+        // 2. Hash password if provided (email signup flow)
+        let hashedPassword: string | null = null;
         if (password) {
             hashedPassword = await bcrypt.hash(password, 10);
         }
 
-        // Find user by GoogleId, Email, or SupabaseId
+        // 3. Find existing user by googleId OR email only (avoid UUID/CUID id mismatch)
         let user = await prisma.user.findFirst({
             where: {
                 OR: [
                     ...(googleId ? [{ googleId }] : []),
-                    ...(email ? [{ email }] : []),
-                    { id: supabaseId }
+                    { email },
                 ]
             }
         });
 
+        const isNewUser = !user;
+
         if (user) {
-            // Update existing user with basic info if missing
+            // Update existing user — link googleId if missing, fill name if missing
             user = await prisma.user.update({
                 where: { id: user.id },
                 data: {
-                    googleId: googleId || user.googleId,
-                    name: user.name || name,
-                    password: hashedPassword || user.password
+                    ...(googleId && !user.googleId ? { googleId } : {}),
+                    ...(!user.name && name ? { name } : {}),
+                    ...(hashedPassword && !user.password ? { password: hashedPassword } : {}),
                 }
             });
         } else {
-            // Create new Prisma user linked to Supabase
+            // Create brand new user
             user = await prisma.user.create({
                 data: {
-                    id: supabaseId,
-                    email: email || `${phone}@placeholder.com`,
-                    name: name || 'Valued Customer',
+                    email,
+                    name: name || 'Pricekam User',
                     googleId,
-                    password: hashedPassword
+                    password: hashedPassword,
                 }
             });
         }
 
+        // 4. Issue our own JWT cookie
         const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
         res.cookie('token', token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
-        res.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role } });
-    } catch (err) {
-        console.error('Supabase sync error:', err);
-        res.status(500).json({ message: 'Authentication sync failed' });
+        res.json({
+            user: { id: user.id, email: user.email, name: user.name, role: user.role },
+            isNewUser
+        });
+    } catch (err: any) {
+        console.error('[Google Auth] Unexpected error:', err?.message, err?.code, err?.meta);
+        res.status(500).json({ message: 'Authentication sync failed', detail: err?.message });
     }
 });
 
 // Logout
-app.post('/api/auth/logout', (req, res) => {
+app.post('/api/auth/logout', (req: any, res) => {
     res.clearCookie('token');
     res.json({ message: 'Logged out' });
+});
+
+// Set Password (for Google-signup users who want to add a password)
+app.post('/api/auth/set-password', authenticateToken, async (req: any, res) => {
+    const { password } = req.body;
+    if (!password || password.length < 6) {
+        return res.status(400).json({ message: 'Password must be at least 6 characters' });
+    }
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await prisma.user.update({
+            where: { id: req.user.id },
+            data: { password: hashedPassword }
+        });
+        res.json({ message: 'Password saved successfully' });
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to save password' });
+    }
 });
 
 // --- RAZORPAY PAYMENT ROUTES ---

@@ -10,24 +10,19 @@ const AuthCallbackPage = () => {
     const [error, setError] = useState('');
 
     useEffect(() => {
-        let isSynced = false;
+        let handled = false;
 
-        const syncSession = async (session: any) => {
-            if (isSynced || !session) return;
-            isSynced = true;
+        const handleCallback = async (session: any) => {
+            if (handled || !session) return;
+            handled = true;
 
             try {
-                const pendingPassword = sessionStorage.getItem('pending_password');
-
                 // Send Supabase access token to our backend → get JWT cookie
                 const res = await fetch('/api/auth/supabase', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({
-                        access_token: session.access_token,
-                        password: pendingPassword
-                    }),
+                    body: JSON.stringify({ access_token: session.access_token }),
                 });
 
                 if (!res.ok) {
@@ -35,29 +30,29 @@ const AuthCallbackPage = () => {
                     throw new Error(data.message || 'Failed to authenticate with server');
                 }
 
-                if (pendingPassword) {
-                    sessionStorage.removeItem('pending_password');
-                }
-
+                const data = await res.json();
                 await refetchUser();
-                navigate('/');
+
+                // New Google users go to set-password; returning users go home
+                if (data.isNewUser) {
+                    navigate('/set-password');
+                } else {
+                    navigate('/');
+                }
             } catch (err: any) {
-                console.error('Auth callback sync error:', err);
-                setError(err.message || 'Something went wrong during sign-in');
+                console.error('Auth callback error:', err);
+                setError(err.message || 'Something went wrong during Google sign-in');
             }
         };
 
-        // 1. Check current session
+        // Check if session already exists (e.g. after redirect)
         supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session) syncSession(session);
+            if (session) handleCallback(session);
         });
 
-        // 2. Listen for auth changes (useful for email verification redirects)
+        // Also listen for auth state change (catches the redirect token exchange)
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            if (session) {
-                // Small delay to ensure session is fully settled
-                setTimeout(() => syncSession(session), 500);
-            }
+            if (session) setTimeout(() => handleCallback(session), 300);
         });
 
         return () => subscription.unsubscribe();
@@ -85,8 +80,8 @@ const AuthCallbackPage = () => {
         <div className="min-h-screen flex items-center justify-center bg-background">
             <div className="text-center space-y-4">
                 <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
-                <p className="font-display font-semibold text-foreground text-lg">Finishing sign-in...</p>
-                <p className="text-muted-foreground font-body text-sm">Welcome to JoyLand!</p>
+                <p className="font-display font-semibold text-foreground text-lg">Signing you in with Google...</p>
+                <p className="text-muted-foreground font-body text-sm">Welcome to Pricekam!</p>
             </div>
         </div>
     );
