@@ -158,9 +158,14 @@ app.get('/api/health', async (req, res) => {
         dbStatus = `ERROR: ${err.message}`;
     }
 
+    // Log masked URL for debugging (hiding password)
+    const maskedUrl = process.env.DATABASE_URL?.replace(/:([^:@]+)@/, ':****@');
+    console.log('Testing DB Connection with URL:', maskedUrl);
+
     res.json({
         status: 'UP',
         database: dbStatus,
+        maskedUrl: maskedUrl, // helpful for user to verify hostname/port
         timestamp: new Date().toISOString(),
         env: process.env.NODE_ENV
     });
