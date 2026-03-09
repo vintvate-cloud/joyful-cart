@@ -131,20 +131,20 @@ const getClientIp = (req: any) => {
 };
 
 const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
+    windowMs: 15 * 60 * 1000,
     max: 10,
     message: { message: 'Too many attempts. Please try again in 15 minutes.' },
     standardHeaders: true, legacyHeaders: false,
     keyGenerator: getClientIp,
-    validate: { xForwardedForHeader: false, default: true }
+    validate: false // completely disable strict validation to survive Vercel proxy
 });
 const apiLimiter = rateLimit({
-    windowMs: 60 * 1000, // 1 minute
+    windowMs: 60 * 1000,
     max: 200,
     message: { message: 'Too many requests. Slow down!' },
     standardHeaders: true, legacyHeaders: false,
     keyGenerator: getClientIp,
-    validate: { xForwardedForHeader: false, default: true }
+    validate: false // completely disable strict validation to survive Vercel proxy
 });
 app.use('/api/', apiLimiter);
 
