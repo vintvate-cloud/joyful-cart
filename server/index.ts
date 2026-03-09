@@ -12,7 +12,7 @@ import multer from 'multer';
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import { Resend } from 'resend';
-import { generateInvoiceEmail } from './emailTemplates';
+import { generateInvoiceEmail } from './emailTemplates.js';
 import rateLimit from 'express-rate-limit';
 
 // --- In-Memory Product Cache (60s TTL) ---
