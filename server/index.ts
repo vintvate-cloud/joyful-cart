@@ -148,6 +148,15 @@ const apiLimiter = rateLimit({
 });
 app.use('/api/', apiLimiter);
 
+// --- Health Check (No DB) ---
+app.get('/api/health', (req, res) => {
+    res.json({
+        status: 'UP',
+        timestamp: new Date().toISOString(),
+        env: process.env.NODE_ENV
+    });
+});
+
 // --- DELIVERY CHARGE LOGIC ---
 // Free delivery for ALL payment methods when subtotal >= ₹2000
 function calcDeliveryCharge(paymentMethod: string, subtotal: number): number {
@@ -930,6 +939,16 @@ app.get('/api/admin/analytics', authenticateToken, authorizeRoles(['ADMIN']), as
 // 404 catch-all
 app.use((req, res) => {
     res.status(404).json({ message: `Route ${req.method} ${req.url} not found` });
+});
+
+// --- Global Error Handler ---
+app.use((err: any, req: any, res: any, next: any) => {
+    console.error('💥 Global Error:', err);
+    res.status(500).json({
+        message: 'Internal Server Error',
+        error: process.env.NODE_ENV === 'development' ? err.message : 'Detailed error in server logs',
+        path: req.path
+    });
 });
 
 // Only start server in development (not when used as Vercel serverless function)
