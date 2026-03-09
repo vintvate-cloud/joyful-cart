@@ -13,6 +13,7 @@ interface Product {
   price: number;
   originalPrice?: number;
   image: string;
+  images: string[];
   category: { name: string };
   brand: string;
   ageGroup: string;

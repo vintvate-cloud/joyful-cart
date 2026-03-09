@@ -39,6 +39,17 @@ const ProfilePage = () => {
     navigate("/");
   };
 
+  const { data: orders = [], isLoading: ordersLoading } = useQuery({
+    queryKey: ['my-orders'],
+    queryFn: async () => {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+      const res = await fetch(`${API_URL}/orders`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Order fetch failed');
+      return res.json();
+    },
+    enabled: !!user // Only fetch if user is logged in
+  });
+
   if (isLoading) return <div className="min-h-screen flex items-center justify-center font-display text-2xl animate-pulse text-primary">Loading JoyLand...</div>;
   if (!user) return null;
 
@@ -49,15 +60,6 @@ const ProfilePage = () => {
     { id: "settings", label: "Settings", icon: Settings },
   ];
 
-  const { data: orders = [], isLoading: ordersLoading } = useQuery({
-    queryKey: ['my-orders'],
-    queryFn: async () => {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
-      const res = await fetch(`${API_URL}/orders`, { credentials: 'include' });
-      if (!res.ok) throw new Error('Order fetch failed');
-      return res.json();
-    }
-  });
 
   const statusColors: any = {
     PENDING: "bg-amber-500/10 text-amber-500",

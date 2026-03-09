@@ -15,6 +15,7 @@ interface Product {
   price: number;
   originalPrice?: number;
   image: string;
+  images: string[];
   category: { id: string; name: string };
   brand: string;
   ageGroup: string;
@@ -29,13 +30,16 @@ const ProductPage = () => {
   const { id } = useParams();
   const { addItem } = useCart();
   const [qty, setQty] = useState(1);
+  const [activeImage, setActiveImage] = useState<string | null>(null);
 
   const { data: product, isLoading } = useQuery<Product>({
     queryKey: ['product', id],
     queryFn: async () => {
       const res = await fetch(`${API_URL}/products/${id}`, { credentials: 'include' });
       if (!res.ok) throw new Error('Product not found');
-      return res.json();
+      const data = await res.json();
+      setActiveImage(data.image);
+      return data;
     },
     enabled: !!id
   });
@@ -47,6 +51,11 @@ const ProductPage = () => {
       return res.json();
     }
   });
+
+  const allImages = useMemo(() => {
+    if (!product) return [];
+    return [product.image, ...(product.images || [])].filter(Boolean);
+  }, [product]);
 
   const related = useMemo(() => {
     if (!product || !allProducts.length) return [];
@@ -79,9 +88,25 @@ const ProductPage = () => {
         </Link>
 
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-20">
-          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="aspect-square rounded-[2rem] overflow-hidden bg-muted group shadow-xl">
-            <img src={product.image} alt={product.title} className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-700" />
-          </motion.div>
+          <div className="space-y-6">
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="aspect-square rounded-[2rem] overflow-hidden bg-muted group shadow-xl border border-border/50">
+              <img src={activeImage || product.image} alt={product.title} className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-700" />
+            </motion.div>
+
+            {allImages.length > 1 && (
+              <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
+                {allImages.map((img, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setActiveImage(img)}
+                    className={`shrink-0 w-24 h-24 rounded-2xl overflow-hidden border-2 transition-all ${activeImage === img ? 'border-primary ring-4 ring-primary/10' : 'border-transparent hover:border-primary/50'}`}
+                  >
+                    <img src={img} className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col py-2">
             <div className="flex items-center gap-2 mb-2">

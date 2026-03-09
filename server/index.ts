@@ -20,10 +20,15 @@ const PORT = process.env.PORT || 5001;
 const JWT_SECRET = process.env.JWT_SECRET || 'joyful_cart_secret';
 
 // --- Razorpay Setup ---
-const razorpay = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID || '',
-    key_secret: process.env.RAZORPAY_KEY_SECRET || '',
-});
+let razorpay: any;
+try {
+    razorpay = new Razorpay({
+        key_id: process.env.RAZORPAY_KEY_ID || 'placeholder',
+        key_secret: process.env.RAZORPAY_KEY_SECRET || 'placeholder',
+    });
+} catch (error) {
+    console.warn('⚠️ Razorpay could not be initialized. Please check your RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in .env');
+}
 
 // --- Nodemailer Setup ---
 const transporter = nodemailer.createTransport({
@@ -605,13 +610,15 @@ app.delete('/api/categories/:id', authenticateToken, authorizeRoles(['ADMIN']), 
 // --- ADMIN PRODUCT ACTIONS ---
 
 app.post('/api/products', authenticateToken, authorizeRoles(['ADMIN']), async (req, res) => {
-    const { title, description, price, originalPrice, image, categoryId, brand, ageGroup, stock, isFeatured } = req.body;
+    const { title, description, price, originalPrice, image, images, categoryId, brand, ageGroup, stock, isFeatured } = req.body;
     try {
         const product = await prisma.product.create({
             data: {
                 title, description, price: parseFloat(price),
                 originalPrice: originalPrice ? parseFloat(originalPrice) : null,
-                image, categoryId, brand, ageGroup,
+                image,
+                images: Array.isArray(images) ? images : [],
+                categoryId, brand, ageGroup,
                 stock: parseInt(stock) || 0, isFeatured: !!isFeatured
             }
         });
@@ -622,14 +629,16 @@ app.post('/api/products', authenticateToken, authorizeRoles(['ADMIN']), async (r
 });
 
 app.put('/api/products/:id', authenticateToken, authorizeRoles(['ADMIN']), async (req, res) => {
-    const { title, description, price, originalPrice, image, categoryId, brand, ageGroup, stock, isFeatured } = req.body;
+    const { title, description, price, originalPrice, image, images, categoryId, brand, ageGroup, stock, isFeatured } = req.body;
     try {
         const product = await prisma.product.update({
             where: { id: req.params.id },
             data: {
                 title, description, price: parseFloat(price),
                 originalPrice: originalPrice ? parseFloat(originalPrice) : null,
-                image, categoryId, brand, ageGroup,
+                image,
+                images: Array.isArray(images) ? images : [],
+                categoryId, brand, ageGroup,
                 stock: parseInt(stock) || 0, isFeatured: !!isFeatured
             }
         });

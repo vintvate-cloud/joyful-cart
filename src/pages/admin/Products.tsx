@@ -12,6 +12,7 @@ interface Product {
     price: number;
     originalPrice: number | null;
     image: string;
+    images: string[];
     category: { id: string; name: string };
     categoryId: string;
     brand: string;
@@ -34,16 +35,15 @@ const Products = () => {
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [uploading, setUploading] = useState(false);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [additionalImages, setAdditionalImages] = useState<string[]>([]);
+    const [uploadingExtra, setUploadingExtra] = useState(false);
     const queryClient = useQueryClient();
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Reset and start uploading
         setUploading(true);
-
-        // Show local preview immediately
         const localUrl = URL.createObjectURL(file);
         setPreviewUrl(localUrl);
 
@@ -58,16 +58,51 @@ const Products = () => {
             });
 
             if (!res.ok) throw new Error('Upload failed');
-
             const data = await res.json();
-            setPreviewUrl(data.url); // Use the real Cloudinary URL now
-            toast.success("Image uploaded to Magic Cloud! ☁️");
+            setPreviewUrl(data.url);
+            toast.success("Main image updated! 📸");
         } catch (error) {
-            toast.error("Cloud cast failed. Try again!");
+            toast.error("Upload failed");
             setPreviewUrl(editingProduct?.image || null);
         } finally {
             setUploading(false);
         }
+    };
+
+    const handleExtraImagesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        setUploadingExtra(true);
+        const newImages = [...additionalImages];
+
+        try {
+            for (let i = 0; i < files.length; i++) {
+                const formData = new FormData();
+                formData.append('image', files[i]);
+
+                const res = await fetch(`${API_URL}/upload`, {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'include'
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    newImages.push(data.url);
+                }
+            }
+            setAdditionalImages(newImages);
+            toast.success("Additional views added! ✨");
+        } catch (error) {
+            toast.error("Extra image upload failed");
+        } finally {
+            setUploadingExtra(false);
+        }
+    };
+
+    const removeExtraImage = (url: string) => {
+        setAdditionalImages(prev => prev.filter(img => img !== url));
     };
 
     // Fetch Products
@@ -130,6 +165,7 @@ const Products = () => {
     const handleEdit = (product: Product) => {
         setEditingProduct(product);
         setPreviewUrl(product.image);
+        setAdditionalImages(product.images || []);
         setShowModal(true);
     };
 
@@ -137,7 +173,9 @@ const Products = () => {
         setShowModal(false);
         setEditingProduct(null);
         setPreviewUrl(null);
+        setAdditionalImages([]);
         setUploading(false);
+        setUploadingExtra(false);
     };
 
     return (
@@ -149,7 +187,7 @@ const Products = () => {
                         <p className="text-muted-foreground font-body font-medium text-center md:text-left">Manage every piece of joy in your warehouse 🧸</p>
                     </div>
                     <button
-                        onClick={() => { setEditingProduct(null); setPreviewUrl(null); setShowModal(true); }}
+                        onClick={() => { setEditingProduct(null); setPreviewUrl(null); setAdditionalImages([]); setShowModal(true); }}
                         className="flex items-center justify-center gap-2 px-8 py-4 bg-primary text-primary-foreground rounded-3xl font-display font-black text-sm hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-primary/30"
                     >
                         <Plus className="h-5 w-5" /> Add New Toy
@@ -283,6 +321,7 @@ const Products = () => {
                                 const data = {
                                     ...entries,
                                     image: previewUrl || entries.image as string,
+                                    images: additionalImages,
                                     price: parseFloat(entries.price as string),
                                     originalPrice: entries.originalPrice ? parseFloat(entries.originalPrice as string) : null,
                                     stock: parseInt(entries.stock as string) || 0,
@@ -297,7 +336,7 @@ const Products = () => {
                                         <input name="title" required defaultValue={editingProduct?.title} type="text" placeholder="e.g. Magical Unicorn Plus" className="w-full px-6 py-4 rounded-2xl bg-background border-2 border-transparent focus:border-primary/20 outline-none font-display font-bold text-foreground transition-all placeholder:text-muted-foreground/30" />
                                     </div>
                                     <div className="col-span-2">
-                                        <label className="block text-[10px] font-display font-black text-muted-foreground uppercase tracking-widest mb-2 ml-1">Magic Toy Image</label>
+                                        <label className="block text-[10px] font-display font-black text-muted-foreground uppercase tracking-widest mb-2 ml-1">Main Image</label>
                                         <div className="flex flex-col gap-4">
                                             {previewUrl && (
                                                 <div className="relative w-full h-48 rounded-3xl overflow-hidden bg-accent border-2 border-border group/img">
@@ -319,21 +358,37 @@ const Products = () => {
                                                         <ImageIcon className="h-6 w-6 text-muted-foreground" />
                                                     </div>
                                                     <div className="text-center">
-                                                        <p className="font-display font-bold text-sm text-foreground">Click to Upload Image</p>
+                                                        <p className="font-display font-bold text-sm text-foreground">Click to Upload Main Image</p>
                                                         <p className="text-[10px] font-display font-black text-muted-foreground uppercase tracking-widest">PNG, JPG up to 5MB</p>
                                                     </div>
                                                 </label>
                                             )}
-                                            <input
-                                                id="imageUpload"
-                                                type="file"
-                                                accept="image/*"
-                                                className="hidden"
-                                                onChange={handleImageUpload}
-                                                disabled={uploading}
-                                            />
-                                            {/* Hidden fallback for form data if needed */}
-                                            <input type="hidden" name="image" value={previewUrl || ""} />
+                                            <input id="imageUpload" type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
+                                        </div>
+                                    </div>
+
+                                    <div className="col-span-2">
+                                        <label className="block text-[10px] font-display font-black text-muted-foreground uppercase tracking-widest mb-2 ml-1">Additional Views (Gallery)</label>
+                                        <div className="grid grid-cols-4 gap-4">
+                                            {additionalImages.map((url, idx) => (
+                                                <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border border-border group/extra">
+                                                    <img src={url} className="w-full h-full object-cover" />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeExtraImage(url)}
+                                                        className="absolute top-1 right-1 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover/extra:opacity-100 transition-all scale-75 group-hover:scale-100"
+                                                    >
+                                                        <X className="h-3 w-3" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {additionalImages.length < 10 && (
+                                                <label htmlFor="extraImagesUpload" className={`aspect-square rounded-2xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${uploadingExtra ? 'pointer-events-none opacity-50' : ''}`}>
+                                                    {uploadingExtra ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Plus className="h-5 w-5 text-muted-foreground" />}
+                                                    <span className="text-[8px] font-black uppercase tracking-tighter text-muted-foreground">Add View</span>
+                                                </label>
+                                            )}
+                                            <input id="extraImagesUpload" type="file" accept="image/*" multiple className="hidden" onChange={handleExtraImagesUpload} disabled={uploadingExtra} />
                                         </div>
                                     </div>
                                     <div>
