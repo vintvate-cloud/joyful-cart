@@ -53,7 +53,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                             <span className="text-2xl">🧸</span>
                         </div>
                         <span className="text-2xl font-display font-black tracking-tight text-primary">
-                            Joyful<span className="text-secondary">Cart</span>
+                            Price<span className="text-secondary">Kam</span>
                         </span>
                     </Link>
 
@@ -106,7 +106,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
 
             {/* Mobile Header */}
             <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-card border-b border-border px-4 flex items-center justify-between z-40">
-                <span className="text-xl font-display font-black text-primary">Joyful<span className="text-secondary">Cart</span> <span className="text-[10px] text-primary">Admin</span></span>
+                <span className="text-xl font-display font-black text-primary">Price<span className="text-secondary">Kam</span> <span className="text-[10px] text-primary">Admin</span></span>
                 <div className="flex items-center gap-2">
                     <button onClick={toggleTheme} className="p-2 text-muted-foreground">
                         {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
@@ -127,7 +127,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                         className="md:hidden fixed inset-0 bg-card z-50 p-6 flex flex-col"
                     >
                         <div className="flex items-center justify-between mb-8">
-                            <span className="text-2xl font-display font-black text-primary">Joyful<span className="text-secondary">Cart</span> <span className="text-[10px] text-primary">Admin</span></span>
+                            <span className="text-2xl font-display font-black text-primary">Price<span className="text-secondary">Kam</span> <span className="text-[10px] text-primary">Admin</span></span>
                             <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-foreground"><X /></button>
                         </div>
                         <nav className="space-y-4">

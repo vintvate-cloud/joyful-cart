@@ -1,7 +1,9 @@
 import { motion } from "framer-motion";
-import { ShoppingCart, Star } from "lucide-react";
+import { ShoppingCart, Star, Check } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useCart } from "@/context/CartContext";
+import { toast } from "sonner";
+import { useState } from "react";
 
 export interface Product {
   id: string;
@@ -20,9 +22,22 @@ export interface Product {
 
 const ProductCard = ({ product }: { product: Product }) => {
   const { addItem } = useCart();
+  const [added, setAdded] = useState(false);
+
   const discount = product.originalPrice
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
     : null;
+
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    addItem(product);
+    setAdded(true);
+    toast.success(`${product.title.substring(0, 30)}${product.title.length > 30 ? "…" : ""} added to cart!`, {
+      description: `₹${product.price}`,
+      duration: 2500,
+    });
+    setTimeout(() => setAdded(false), 2000);
+  };
 
   return (
     <motion.div
@@ -30,7 +45,7 @@ const ProductCard = ({ product }: { product: Product }) => {
       className="group bg-card rounded-[2rem] overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 border border-border/50 relative"
     >
       <Link to={`/product/${product.id}`} className="block relative aspect-square overflow-hidden bg-muted">
-        <img src={product.image} alt={product.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+        <img src={product.image} alt={product.title} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
 
         <div className="absolute top-4 left-4 flex flex-col gap-2">
           {product.badge && (
@@ -65,19 +80,34 @@ const ProductCard = ({ product }: { product: Product }) => {
           </h3>
         </Link>
 
-        <div className="flex items-center justify-between mt-auto pt-2">
-          <div className="flex flex-col">
+        <div className="flex items-center justify-between mt-auto pt-2 gap-3">
+          <div className="flex flex-col shrink-0">
             <span className="text-2xl font-display font-black text-primary">₹{product.price}</span>
             {product.originalPrice && (
               <span className="text-xs text-muted-foreground line-through font-body font-bold opacity-40">₹{product.originalPrice}</span>
             )}
           </div>
-          <button
-            onClick={(e) => { e.preventDefault(); addItem(product); }}
-            className="w-12 h-12 rounded-2xl bg-primary text-primary-foreground hover:scale-110 active:scale-90 transition-all shadow-lg shadow-primary/20 flex items-center justify-center group/btn"
+
+          <motion.button
+            onClick={handleAddToCart}
+            whileTap={{ scale: 0.92 }}
+            className={`flex items-center gap-1.5 px-4 py-2.5 rounded-2xl font-display font-bold text-xs transition-all shadow-lg shrink-0 ${added
+              ? "bg-emerald-500 text-white shadow-emerald-500/25"
+              : "bg-primary text-primary-foreground hover:opacity-90 shadow-primary/20"
+              }`}
           >
-            <ShoppingCart className="h-5 w-5 transition-transform group-hover/btn:-rotate-12" />
-          </button>
+            {added ? (
+              <>
+                <Check className="h-4 w-4" />
+                <span>Added!</span>
+              </>
+            ) : (
+              <>
+                <ShoppingCart className="h-3.5 w-3.5" />
+                <span>Add to Cart</span>
+              </>
+            )}
+          </motion.button>
         </div>
       </div>
     </motion.div>

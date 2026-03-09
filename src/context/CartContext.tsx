@@ -51,7 +51,6 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       if (existing) return prev.map((i) => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
       return [...prev, { id: product.id, product, quantity: 1 }];
     });
-    setIsOpen(true);
   };
 
   const removeItem = (productId: string) =>

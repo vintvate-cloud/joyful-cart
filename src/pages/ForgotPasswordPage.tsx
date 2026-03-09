@@ -3,22 +3,30 @@ import { Link } from "react-router-dom";
 import { Mail, ArrowLeft, Loader2, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AuthLayout from "@/components/auth/AuthLayout";
+import { supabase } from "@/lib/supabase";
 
 const ForgotPasswordPage = () => {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!email) return;
-
+    setError("");
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      const { error: sbError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (sbError) throw sbError;
       setSent(true);
-    }, 1500);
+    } catch (err: any) {
+      setError(err.message || "Something went wrong. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

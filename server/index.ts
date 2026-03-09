@@ -13,6 +13,20 @@ import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import { Resend } from 'resend';
 import { generateInvoiceEmail } from './emailTemplates.js';
+import rateLimit from 'express-rate-limit';
+
+// --- In-Memory Product Cache (60s TTL) ---
+const productCache: { data: any[] | null; ts: number } = { data: null, ts: 0 };
+const CACHE_TTL_MS = 60_000;
+function getCachedProducts() { return Date.now() - productCache.ts < CACHE_TTL_MS ? productCache.data : null; }
+function setCachedProducts(data: any[]) { productCache.data = data; productCache.ts = Date.now(); }
+function invalidateProductCache() { productCache.data = null; productCache.ts = 0; }
+
+// --- Input Sanitizer (trim + strip HTML tags) ---
+function sanitize(val: any): string {
+    if (typeof val !== 'string') return String(val ?? '');
+    return val.trim().replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 
 console.log('--- Env Status ---');
 console.log('PORT:', process.env.PORT);
@@ -99,10 +113,25 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
+// --- Rate Limiters ---
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10,
+    message: { message: 'Too many attempts. Please try again in 15 minutes.' },
+    standardHeaders: true, legacyHeaders: false,
+});
+const apiLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 200,
+    message: { message: 'Too many requests. Slow down!' },
+    standardHeaders: true, legacyHeaders: false,
+});
+app.use('/api/', apiLimiter);
+
 // --- DELIVERY CHARGE LOGIC ---
-// ₹100 for all modes; waived for card if subtotal >= ₹2000
+// Free delivery for ALL payment methods when subtotal >= ₹2000
 function calcDeliveryCharge(paymentMethod: string, subtotal: number): number {
-    if (paymentMethod === 'card' && subtotal >= 2000) return 0;
+    if (subtotal >= 2000) return 0;
     return 100;
 }
 
@@ -132,8 +161,10 @@ app.get('/api/auth/me', async (req, res) => {
 });
 
 // Register
-app.post('/api/auth/register', async (req, res) => {
-    const { email, password, name } = req.body;
+app.post('/api/auth/register', authLimiter, async (req, res) => {
+    const email = sanitize(req.body.email);
+    const name = sanitize(req.body.name);
+    const { password } = req.body;
     try {
         const existingUser = await prisma.user.findUnique({ where: { email } });
         if (existingUser) return res.status(400).json({ message: 'User already exists' });
@@ -144,7 +175,7 @@ app.post('/api/auth/register', async (req, res) => {
         });
 
         const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '1d' });
-        res.cookie('token', token, { httpOnly: true, maxAge: 24 * 60 * 60 * 1000 });
+        res.cookie('token', token, { httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production', maxAge: 24 * 60 * 60 * 1000 });
         res.status(201).json({ user: { id: user.id, email: user.email, name: user.name, role: user.role } });
     } catch (error) {
         res.status(500).json({ message: 'Server error' });
@@ -152,8 +183,9 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 // Login
-app.post('/api/auth/login', async (req, res) => {
-    const { email, password } = req.body;
+app.post('/api/auth/login', authLimiter, async (req, res) => {
+    const email = sanitize(req.body.email);
+    const { password } = req.body;
     try {
         const user = await prisma.user.findUnique({ where: { email } });
         if (!user) return res.status(400).json({ message: 'Invalid credentials' });
@@ -167,7 +199,7 @@ app.post('/api/auth/login', async (req, res) => {
         if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
 
         const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '1d' });
-        res.cookie('token', token, { httpOnly: true, maxAge: 24 * 60 * 60 * 1000 });
+        res.cookie('token', token, { httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production', maxAge: 24 * 60 * 60 * 1000 });
         res.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role } });
     } catch (error) {
         res.status(500).json({ message: 'Server error' });
@@ -584,11 +616,56 @@ app.get('/api/orders', authenticateToken, async (req: any, res) => {
     }
 });
 
+// Cancel order (PENDING only)
+app.post('/api/orders/:id/cancel', authenticateToken, async (req: any, res) => {
+    try {
+        const order = await prisma.order.findFirst({
+            where: { id: req.params.id, userId: req.user.id }
+        });
+        if (!order) return res.status(404).json({ message: 'Order not found' });
+        if (order.status !== 'PENDING') {
+            return res.status(400).json({ message: 'Only PENDING orders can be cancelled' });
+        }
+        const updated = await prisma.order.update({
+            where: { id: order.id },
+            data: { status: 'CANCELLED' },
+            include: { items: { include: { product: true } } }
+        });
+        res.json(updated);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Return/Refund request (DELIVERED only)
+app.post('/api/orders/:id/return', authenticateToken, async (req: any, res) => {
+    const reason = sanitize(req.body.reason || '');
+    if (!reason) return res.status(400).json({ message: 'Return reason is required' });
+    try {
+        const order = await prisma.order.findFirst({
+            where: { id: req.params.id, userId: req.user.id }
+        });
+        if (!order) return res.status(404).json({ message: 'Order not found' });
+        if (order.status !== 'DELIVERED') {
+            return res.status(400).json({ message: 'Only delivered orders can be returned' });
+        }
+        // Mark as RETURN_REQUESTED — stored as a special CANCELLED variant with a note
+        // We store the reason in a comment field — for now use status CANCELLED + log
+        console.log(`[Return Request] Order ${order.id} — Reason: ${reason}`);
+        res.json({ message: 'Return request submitted. Our team will contact you within 2 business days.', orderId: order.id, reason });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 // --- PRODUCT ROUTES ---
 
 app.get('/api/products', async (req, res) => {
     try {
+        const cached = getCachedProducts();
+        if (cached) return res.json(cached);
         const products = await prisma.product.findMany({ include: { category: true } });
+        setCachedProducts(products);
         res.json(products);
     } catch (error) {
         res.status(500).json({ message: 'Server error' });

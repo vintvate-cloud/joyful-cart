@@ -33,9 +33,8 @@ const CheckoutPage = () => {
 
   const [address, setAddress] = useState({ name: "", phone: "", street: "", city: "", state: "", pincode: "" });
 
-  // --- DELIVERY CHARGE LOGIC ---
-  // ₹100 for all modes; free for card if subtotal >= ₹2000
-  const deliveryCharge = paymentMethod === "card" && total >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_CHARGE;
+  // Free delivery for ALL methods when subtotal >= ₹2000
+  const deliveryCharge = total >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_CHARGE;
   const grandTotal = total + deliveryCharge;
   const advanceAmount = paymentMethod === "cod" ? Math.ceil(grandTotal * 0.10) : grandTotal;
   const balanceDueOnDelivery = paymentMethod === "cod" ? grandTotal - advanceAmount : 0;
@@ -191,16 +190,20 @@ const CheckoutPage = () => {
             Order #{orderId?.slice(-8).toUpperCase()} placed successfully!
           </p>
 
-          {paymentMethod === "cod" ? (
+          {paymentMethod === "cod" && placedOrder ? (
             <div className="max-w-sm mx-auto mb-8 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-left">
               <p className="text-xs font-black uppercase tracking-widest text-amber-600 mb-2">Partial COD Details</p>
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-muted-foreground">Advance Paid (Razorpay)</span>
-                <span className="font-black text-emerald-600">₹{advanceAmount.toFixed(2)} ✓</span>
+                <span className="font-black text-emerald-600">₹{(placedOrder.advancePaid ?? 0).toFixed(2)} ✓</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Balance Due on Delivery</span>
-                <span className="font-black text-amber-600">₹{balanceDueOnDelivery.toFixed(2)}</span>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-muted-foreground">Order Total</span>
+                <span className="font-black text-foreground">₹{(placedOrder.total ?? 0).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm font-black border-t border-amber-200 pt-2 mt-2">
+                <span className="text-amber-700">Balance Due on Delivery</span>
+                <span className="text-amber-600">₹{((placedOrder.total ?? 0) - (placedOrder.advancePaid ?? 0)).toFixed(2)}</span>
               </div>
             </div>
           ) : (
@@ -211,6 +214,15 @@ const CheckoutPage = () => {
               Total Paid: <span className="text-primary font-black">₹{grandTotal.toFixed(2)}</span>
             </p>
           )}
+
+          {/* Expected Delivery */}
+          <div className="max-w-sm mx-auto mb-6 flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-2xl">
+            <span className="text-2xl">🚚</span>
+            <div className="text-left">
+              <p className="text-[10px] font-black uppercase tracking-widest text-blue-600">Expected Delivery</p>
+              <p className="text-sm font-display font-black text-foreground">7 – 10 Business Days</p>
+            </div>
+          </div>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link to="/profile?tab=orders" className="w-full sm:w-auto px-8 py-4 bg-primary text-primary-foreground rounded-[2rem] font-display font-black text-sm hover:scale-105 transition-all shadow-xl shadow-primary/20">
@@ -341,15 +353,15 @@ const CheckoutPage = () => {
                           id: "upi" as const,
                           label: "UPI",
                           icon: Zap,
-                          desc: "GPay / PhonePe / BHIM",
-                          badge: null,
+                          desc: total >= FREE_DELIVERY_THRESHOLD ? "🎉 Free Delivery!" : "GPay / PhonePe / BHIM",
+                          badge: total >= FREE_DELIVERY_THRESHOLD ? "No Delivery Fee" : null,
                         },
                         {
                           id: "cod" as const,
                           label: "Part COD",
                           icon: Banknote,
-                          desc: `Pay ₹${Math.ceil((total + DELIVERY_CHARGE) * 0.10)} now, rest on delivery`,
-                          badge: "10% Advance",
+                          desc: `Pay ₹${Math.ceil((total + (total >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_CHARGE)) * 0.10)} now, rest on delivery`,
+                          badge: total >= FREE_DELIVERY_THRESHOLD ? "Free Delivery" : "10% Advance",
                         },
                       ]).map((pm) => (
                         <button

@@ -26,6 +26,9 @@ interface Order {
     city?: string;
     state?: string;
     pincode?: string;
+    paymentMethod?: string | null;
+    advancePaid?: number | null;
+    deliveryCharge?: number | null;
 }
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
@@ -113,10 +116,15 @@ const Orders = () => {
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center justify-between md:justify-end gap-6">
+                                        <div className="flex items-center justify-between md:justify-end gap-4">
                                             <div className="text-right">
                                                 <p className="font-display font-black text-foreground">₹{order.total.toFixed(2)}</p>
                                                 <p className="text-[10px] font-display font-black text-muted-foreground/60 uppercase tracking-widest">{order.customerName || order.user.name.split(' ')[0]}</p>
+                                                {order.paymentMethod === 'cod' && order.advancePaid && (
+                                                    <p className="text-[10px] font-display font-black text-orange-500 uppercase tracking-widest mt-0.5">
+                                                        COD — ₹{(order.total - order.advancePaid).toFixed(0)} due
+                                                    </p>
+                                                )}
                                             </div>
                                             <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest ${statusConfigs[order.status].color}`}>
                                                 <StatusIcon className="h-4 w-4" />
@@ -211,6 +219,38 @@ const Orders = () => {
                                     </div>
 
                                     <div className="border-t border-border pt-6 space-y-4">
+                                        {/* Payment Breakdown */}
+                                        <div className="p-5 bg-card border border-border rounded-3xl space-y-3">
+                                            <p className="text-[10px] font-display font-black text-primary uppercase tracking-widest">Payment</p>
+                                            <div className="flex justify-between text-sm">
+                                                <span className="font-body text-muted-foreground">Method</span>
+                                                <span className="font-display font-black text-foreground capitalize">
+                                                    {selectedOrder.paymentMethod === 'cod' ? 'Partial COD' : selectedOrder.paymentMethod?.toUpperCase() || '—'}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between text-sm">
+                                                <span className="font-body text-muted-foreground">Order Total</span>
+                                                <span className="font-display font-black text-foreground">₹{selectedOrder.total.toFixed(2)}</span>
+                                            </div>
+                                            {selectedOrder.paymentMethod === 'cod' && selectedOrder.advancePaid ? (
+                                                <>
+                                                    <div className="flex justify-between text-sm">
+                                                        <span className="font-body text-muted-foreground">Advance Paid (10%)</span>
+                                                        <span className="font-display font-black text-emerald-500">₹{selectedOrder.advancePaid.toFixed(2)}</span>
+                                                    </div>
+                                                    <div className="flex justify-between text-sm border-t border-border pt-3">
+                                                        <span className="font-display font-black text-orange-500">Balance Due on Delivery</span>
+                                                        <span className="font-display font-black text-orange-500 text-base">₹{(selectedOrder.total - selectedOrder.advancePaid).toFixed(2)}</span>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <div className="flex justify-between text-sm border-t border-border pt-3">
+                                                    <span className="font-display font-black text-foreground">Paid in Full</span>
+                                                    <span className="font-display font-black text-emerald-500">₹{selectedOrder.total.toFixed(2)}</span>
+                                                </div>
+                                            )}
+                                        </div>
+
                                         <div className="flex justify-between items-center bg-primary p-6 rounded-3xl text-primary-foreground">
                                             <span className="text-[10px] font-display font-black uppercase tracking-widest opacity-60">Grand Total</span>
                                             <span className="text-2xl font-display font-black">₹{selectedOrder.total.toFixed(2)}</span>

@@ -142,6 +142,17 @@ export function generateInvoiceEmail(order: InvoiceOrder, userEmail: string): { 
       </div>
     </div>
 
+    <!-- Expected Delivery -->
+    <div style="padding: 0 48px 28px;">
+      <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:16px; padding:16px 20px; display:flex; align-items:center; gap:16px;">
+        <span style="font-size:28px;">🚚</span>
+        <div>
+          <p style="margin:0 0 2px; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:2px; color:#2563eb;">Expected Delivery</p>
+          <p style="margin:0; font-size:15px; font-weight:800; color:#111;">7 – 10 Business Days</p>
+        </div>
+      </div>
+    </div>
+
     <!-- Footer -->
     <div style="background:#111; padding:32px 48px; text-align:center;">
       <p style="margin:0 0 8px; color:#fff; font-size:14px; font-weight:800; letter-spacing:2px; text-transform:uppercase;">Thank You for Shopping!</p>
