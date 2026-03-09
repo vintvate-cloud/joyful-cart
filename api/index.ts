@@ -1,8 +1,8 @@
 /**
  * Vercel Serverless Function entry point.
- * Imports the Express app and exports it as a handler.
- * Vercel will invoke this for all /api/* requests (as configured in vercel.json).
+ * This file must live in the /api directory.
+ * Vercel bundles and executes it for all /api/* requests.
  */
-import app from '../server/index.js';
+import app from '../server/index';
 
 export default app;
