@@ -136,6 +136,7 @@ const authLimiter = rateLimit({
     message: { message: 'Too many attempts. Please try again in 15 minutes.' },
     standardHeaders: true, legacyHeaders: false,
     keyGenerator: getClientIp,
+    validate: { xForwardedForHeader: false, default: true }
 });
 const apiLimiter = rateLimit({
     windowMs: 60 * 1000, // 1 minute
@@ -143,6 +144,7 @@ const apiLimiter = rateLimit({
     message: { message: 'Too many requests. Slow down!' },
     standardHeaders: true, legacyHeaders: false,
     keyGenerator: getClientIp,
+    validate: { xForwardedForHeader: false, default: true }
 });
 app.use('/api/', apiLimiter);
 
