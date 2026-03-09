@@ -148,10 +148,19 @@ const apiLimiter = rateLimit({
 });
 app.use('/api/', apiLimiter);
 
-// --- Health Check (No DB) ---
-app.get('/api/health', (req, res) => {
+// --- Health Check (with DB test) ---
+app.get('/api/health', async (req, res) => {
+    let dbStatus = 'NOT_TESTED';
+    try {
+        await prisma.$queryRaw`SELECT 1`;
+        dbStatus = 'CONNECTED';
+    } catch (err: any) {
+        dbStatus = `ERROR: ${err.message}`;
+    }
+
     res.json({
         status: 'UP',
+        database: dbStatus,
         timestamp: new Date().toISOString(),
         env: process.env.NODE_ENV
     });
@@ -946,7 +955,8 @@ app.use((err: any, req: any, res: any, next: any) => {
     console.error('💥 Global Error:', err);
     res.status(500).json({
         message: 'Internal Server Error',
-        error: process.env.NODE_ENV === 'development' ? err.message : 'Detailed error in server logs',
+        error: err.message, // ALWAYS show error message temporarily for debugging
+        stack: err.stack,   // ALWAYS show stacktrace temporarily for debugging
         path: req.path
     });
 });
