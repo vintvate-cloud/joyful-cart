@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "server": "tsx watch server/index.ts",
     "dev:all": "npm run dev",
+    "postinstall": "npx prisma generate",
     "prisma:seed": "prisma db seed",
     "vercel-build": "npx prisma generate && vite build"
   },
