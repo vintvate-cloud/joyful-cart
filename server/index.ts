@@ -35,6 +35,9 @@ console.log('SUPABASE_SERVICE_ROLE_KEY exists:', !!process.env.SUPABASE_SERVICE_
 console.log('------------------');
 
 const app = express();
+// Trust proxy is required for Vercel/Express rate limiting to work
+app.set('trust proxy', 1);
+
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 5001;
 const JWT_SECRET = process.env.JWT_SECRET || 'joyful_cart_secret';
@@ -122,17 +125,24 @@ app.use(express.json());
 app.use(cookieParser());
 
 // --- Rate Limiters ---
+// Use a custom keyGenerator that respects Vercel's x-forwarded-for headers
+const getClientIp = (req: any) => {
+    return req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress || 'unknown';
+};
+
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 10,
     message: { message: 'Too many attempts. Please try again in 15 minutes.' },
     standardHeaders: true, legacyHeaders: false,
+    keyGenerator: getClientIp,
 });
 const apiLimiter = rateLimit({
     windowMs: 60 * 1000, // 1 minute
     max: 200,
     message: { message: 'Too many requests. Slow down!' },
     standardHeaders: true, legacyHeaders: false,
+    keyGenerator: getClientIp,
 });
 app.use('/api/', apiLimiter);
 
