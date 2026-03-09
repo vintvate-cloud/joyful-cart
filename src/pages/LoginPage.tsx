@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import AuthLayout from "@/components/auth/AuthLayout";
 import GoogleButton from "@/components/auth/GoogleButton";
 import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/lib/supabase";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -29,6 +30,20 @@ const LoginPage = () => {
     setError("");
 
     try {
+      // 1. First try Supabase (Modern Auth Flow)
+      const { data: sbData, error: sbError } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: cleanPassword,
+      });
+
+      if (!sbError && sbData.session) {
+        // Successful Supabase login, now sync with our backend
+        await syncWithBackend(sbData.session.access_token);
+        return;
+      }
+
+      // 2. If Supabase fails, try Local Server (Fallback for legacy/admin accounts)
+      // We only fallback if Supabase gives an error (like user not found in Supabase)
       const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -37,22 +52,41 @@ const LoginPage = () => {
       });
 
       const data = await res.json();
-
       if (!res.ok) {
-        throw new Error(data.message || "Invalid credentials");
+        throw new Error(data.message || (sbError ? sbError.message : "Invalid credentials"));
       }
 
+      // Successful local login
       refetchUser();
+      navigateByRole(data.user.role);
 
-      if (data.user.role === "ADMIN") {
-        navigate("/admin/dashboard");
-      } else {
-        navigate("/");
-      }
     } catch (err: any) {
       setError(err.message || "Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const syncWithBackend = async (access_token: string) => {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/supabase`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ access_token }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Session sync failed");
+
+    await refetchUser();
+    navigateByRole(data.user.role);
+  };
+
+  const navigateByRole = (role: string) => {
+    if (role === "ADMIN") {
+      navigate("/admin/dashboard");
+    } else {
+      navigate("/");
     }
   };
 

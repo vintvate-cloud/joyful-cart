@@ -1,6 +1,8 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
@@ -9,10 +11,14 @@ import { v2 as cloudinary } from 'cloudinary';
 import multer from 'multer';
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import { generateInvoiceEmail } from './emailTemplates.js';
 
-dotenv.config();
+console.log('--- Env Status ---');
+console.log('PORT:', process.env.PORT);
+console.log('RESEND_API_KEY exists:', !!process.env.RESEND_API_KEY);
+console.log('SUPABASE_SERVICE_ROLE_KEY exists:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+console.log('------------------');
 
 const app = express();
 const prisma = new PrismaClient();
@@ -30,14 +36,11 @@ try {
     console.warn('⚠️ Razorpay could not be initialized. Please check your RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in .env');
 }
 
-// --- Nodemailer Setup ---
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-    },
-});
+// --- Resend Setup ---
+const resend = new Resend(process.env.RESEND_API_KEY || 're_placeholder');
+if (!process.env.RESEND_API_KEY) {
+    console.warn('⚠️ RESEND_API_KEY is missing from .env. Invoice emails will fail.');
+}
 
 // --- Configure Cloudinary ---
 cloudinary.config({
@@ -171,51 +174,74 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
-// Google OAuth via Supabase
-app.post('/api/auth/google', async (req, res) => {
-    const { access_token } = req.body;
+// Unified Supabase Auth Sink (Google, Email, Phone)
+app.post('/api/auth/supabase', async (req, res) => {
+    const { access_token, password } = req.body;
     if (!access_token) return res.status(400).json({ message: 'Missing access_token' });
 
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    if (!supabaseUrl || !serviceRoleKey) {
+    if (!supabaseUrl || !serviceRoleKey || supabaseUrl.includes('placeholder')) {
         return res.status(503).json({ message: 'Supabase not configured on server' });
     }
 
     try {
-        // Verify the token with Supabase service role
         const { createClient } = await import('@supabase/supabase-js');
         const adminClient = createClient(supabaseUrl, serviceRoleKey);
-        const { data: { user: sbUser }, error } = await adminClient.auth.getUser(access_token);
+        const { data: { user: sbUser }, error: sbError } = await adminClient.auth.getUser(access_token);
 
-        if (error || !sbUser) {
-            return res.status(401).json({ message: 'Invalid or expired Google token' });
+        if (sbError || !sbUser) {
+            console.error('Supabase token verification failed:', sbError);
+            return res.status(401).json({ message: 'Invalid or expired Supabase token', details: sbError?.message });
         }
 
         const email = sbUser.email;
-        const name = sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || email?.split('@')[0];
-        const googleId = sbUser.id;
+        const phone = sbUser.phone;
+        const name = sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || email?.split('@')[0] || phone;
+        const isGoogle = sbUser.app_metadata?.provider === 'google' || sbUser.identities?.some(id => id.provider === 'google');
+        const googleId = isGoogle ? sbUser.id : null;
+        const supabaseId = sbUser.id;
 
-        if (!email) return res.status(400).json({ message: 'No email from Google account' });
+        if (!email && !phone) return res.status(400).json({ message: 'No email or phone from Supabase' });
 
-        // Find by googleId OR email (links existing email/password accounts)
+        // Securely hash local password if provided
+        let hashedPassword = null;
+        if (password) {
+            hashedPassword = await bcrypt.hash(password, 10);
+        }
+
+        // Find user by GoogleId, Email, or SupabaseId
         let user = await prisma.user.findFirst({
-            where: { OR: [{ googleId }, { email }] }
+            where: {
+                OR: [
+                    ...(googleId ? [{ googleId }] : []),
+                    ...(email ? [{ email }] : []),
+                    { id: supabaseId }
+                ]
+            }
         });
 
         if (user) {
-            // Link googleId if not yet linked
-            if (!user.googleId) {
-                user = await prisma.user.update({
-                    where: { id: user.id },
-                    data: { googleId }
-                });
-            }
+            // Update existing user with basic info if missing
+            user = await prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    googleId: googleId || user.googleId,
+                    name: user.name || name,
+                    password: hashedPassword || user.password
+                }
+            });
         } else {
-            // Create new user (no password — Google-only)
+            // Create new Prisma user linked to Supabase
             user = await prisma.user.create({
-                data: { email, name, googleId }
+                data: {
+                    id: supabaseId,
+                    email: email || `${phone}@placeholder.com`,
+                    name: name || 'Valued Customer',
+                    googleId,
+                    password: hashedPassword
+                }
             });
         }
 
@@ -223,8 +249,8 @@ app.post('/api/auth/google', async (req, res) => {
         res.cookie('token', token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
         res.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role } });
     } catch (err) {
-        console.error('Google auth error:', err);
-        res.status(500).json({ message: 'Google sign-in failed' });
+        console.error('Supabase sync error:', err);
+        res.status(500).json({ message: 'Authentication sync failed' });
     }
 });
 
@@ -469,8 +495,8 @@ app.post('/api/payment/verify', authenticateToken, async (req: any, res) => {
         // 4. Send invoice email (non-blocking)
         try {
             const { subject, html } = generateInvoiceEmail(order, user.email);
-            await transporter.sendMail({
-                from: `"Pricekam 🛍️" <${process.env.EMAIL_USER}>`,
+            await resend.emails.send({
+                from: 'Joyful Cart <onboarding@resend.dev>',
                 to: user.email,
                 subject,
                 html,
