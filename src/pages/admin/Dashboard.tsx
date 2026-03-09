@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ShoppingCart, Package, Users, IndianRupee, TrendingUp, Loader2, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { ShoppingCart, Package, Users, IndianRupee, Loader2, ArrowUpRight, ArrowDownRight, LayoutGrid } from "lucide-react";
 import { motion } from "framer-motion";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { useNavigate } from "react-router-dom";
@@ -119,7 +119,7 @@ const Dashboard = () => {
                             <div className="grid grid-cols-2 gap-4">
                                 {[
                                     { label: "Products", icon: Package, href: "/admin/products" },
-                                    { label: "Analytics", icon: TrendingUp, href: "/admin/analytics" },
+                                    { label: "Categories", icon: LayoutGrid, href: "/admin/categories" },
                                     { label: "Customers", icon: Users, href: "/admin/customers" },
                                     { label: "Orders", icon: ShoppingCart, href: "/admin/orders" },
                                 ].map((action) => (

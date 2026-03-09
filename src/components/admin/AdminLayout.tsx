@@ -41,7 +41,6 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
         { icon: LayoutGrid, label: "Categories", href: "/admin/categories" },
         { icon: ShoppingCart, label: "Orders", href: "/admin/orders" },
         { icon: Users, label: "Customers", href: "/admin/customers" },
-        { icon: TrendingUp, label: "Analytics", href: "/admin/analytics" },
     ];
 
     return (

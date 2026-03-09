@@ -20,6 +20,12 @@ interface Order {
     status: 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
     items: OrderItem[];
     createdAt: string;
+    customerName?: string;
+    customerPhone?: string;
+    streetAddress?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
 }
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
@@ -110,7 +116,7 @@ const Orders = () => {
                                         <div className="flex items-center justify-between md:justify-end gap-6">
                                             <div className="text-right">
                                                 <p className="font-display font-black text-foreground">₹{order.total.toFixed(2)}</p>
-                                                <p className="text-[10px] font-display font-black text-muted-foreground/60 uppercase tracking-widest">{order.user.name.split(' ')[0]}</p>
+                                                <p className="text-[10px] font-display font-black text-muted-foreground/60 uppercase tracking-widest">{order.customerName || order.user.name.split(' ')[0]}</p>
                                             </div>
                                             <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest ${statusConfigs[order.status].color}`}>
                                                 <StatusIcon className="h-4 w-4" />
@@ -154,10 +160,36 @@ const Orders = () => {
                                                 <User className="h-5 w-5 text-muted-foreground/60" />
                                             </div>
                                             <div>
-                                                <p className="font-display font-black text-foreground text-sm">{selectedOrder.user.name}</p>
+                                                <p className="font-display font-black text-foreground text-sm">{selectedOrder.customerName || selectedOrder.user.name}</p>
                                                 <p className="text-[10px] font-display font-bold text-muted-foreground/60 uppercase tracking-widest">{selectedOrder.user.email}</p>
                                             </div>
                                         </div>
+
+                                        {(selectedOrder.customerPhone || selectedOrder.streetAddress) && (
+                                            <div className="p-5 bg-card border border-border rounded-3xl space-y-4 shadow-sm">
+                                                <p className="text-[10px] font-display font-black text-primary uppercase tracking-widest">Shipping Detail</p>
+                                                {selectedOrder.customerPhone && (
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 bg-primary/10 rounded-xl flex items-center justify-center">
+                                                            <Truck className="h-4 w-4 text-primary" />
+                                                        </div>
+                                                        <p className="text-sm font-display font-bold text-foreground">{selectedOrder.customerPhone}</p>
+                                                    </div>
+                                                )}
+                                                {selectedOrder.streetAddress && (
+                                                    <div className="flex gap-3">
+                                                        <div className="w-8 h-8 bg-emerald-500/10 rounded-xl flex items-center justify-center shrink-0">
+                                                            <Package className="h-4 w-4 text-emerald-600" />
+                                                        </div>
+                                                        <div className="text-xs font-body text-muted-foreground leading-relaxed">
+                                                            <p className="font-bold text-foreground mb-0.5">{selectedOrder.streetAddress}</p>
+                                                            <p>{selectedOrder.city}, {selectedOrder.state}</p>
+                                                            <p className="font-black text-[10px] tracking-widest uppercase mt-1">{selectedOrder.pincode}</p>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
 
                                         <div>
                                             <p className="text-[10px] font-display font-black text-muted-foreground/60 uppercase tracking-widest mb-4">Toy Items</p>
