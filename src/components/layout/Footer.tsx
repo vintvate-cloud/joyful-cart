@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { Facebook, Instagram, Twitter, Youtube, Mail, MapPin, Phone, Send, ArrowRight } from "lucide-react";
+import { Instagram, Mail, MapPin, Phone, Send, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 
 const Footer = () => {
@@ -30,10 +30,8 @@ const Footer = () => {
   };
 
   const socialLinks = [
-    { icon: Facebook, color: "hover:bg-blue-500", href: "#" },
-    { icon: Instagram, color: "hover:bg-pink-500", href: "#" },
-    { icon: Twitter, color: "hover:bg-sky-400", href: "#" },
-    { icon: Youtube, color: "hover:bg-red-500", href: "#" },
+    { icon: Instagram, color: "hover:bg-pink-500", href: "https://www.instagram.com/littlefy_toys", label: "Instagram" },
+    { icon: Mail, color: "hover:bg-primary", href: "mailto:support@pricekam.com", label: "Email" },
   ];
 
   return (
@@ -132,13 +130,25 @@ const Footer = () => {
                 <div className="w-8 h-8 rounded-lg bg-background flex items-center justify-center group-hover:bg-primary/5 transition-colors">
                   <Phone size={14} className="text-primary" />
                 </div>
-                <span className="font-body font-medium">+1 (555) 123-魔法</span>
+                <a href="tel:+917489781720" className="font-body font-medium hover:text-primary transition-colors">+91 74897 81720</a>
               </div>
-              <div className="flex items-center gap-3 text-sm text-muted-foreground group">
-                <div className="w-8 h-8 rounded-lg bg-background flex items-center justify-center group-hover:bg-secondary/5 transition-colors">
+              <div className="flex items-start gap-3 text-sm text-muted-foreground group">
+                <div className="w-8 h-8 rounded-lg bg-background flex items-center justify-center shrink-0 group-hover:bg-secondary/5 transition-colors mt-0.5">
                   <MapPin size={14} className="text-secondary" />
                 </div>
-                <span className="font-body font-medium">123 Toy Street, Magic Valley</span>
+                <span className="font-body font-medium leading-snug">22, near State Bank Of India, Awadhpuri, Bhopal, MP 462022</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-muted-foreground group">
+                <div className="w-8 h-8 rounded-lg bg-background flex items-center justify-center group-hover:bg-primary/5 transition-colors">
+                  <Mail size={14} className="text-primary" />
+                </div>
+                <a href="mailto:support@pricekam.com" className="font-body font-medium hover:text-primary transition-colors">support@pricekam.com</a>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-muted-foreground group">
+                <div className="w-8 h-8 rounded-lg bg-background flex items-center justify-center group-hover:bg-pink-500/10 transition-colors">
+                  <Instagram size={14} className="text-pink-500" />
+                </div>
+                <a href="https://www.instagram.com/littlefy_toys" target="_blank" rel="noopener noreferrer" className="font-body font-medium hover:text-pink-500 transition-colors">@littlefy_toys</a>
               </div>
             </div>
           </div>

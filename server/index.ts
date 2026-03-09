@@ -95,11 +95,19 @@ const authorizeRoles = (roles: string[]) => {
 
 app.use(cors({
     origin: (origin, callback) => {
-        // Allow: no origin (Vite proxy / server-to-server), localhost, and ngrok tunnels
+        const allowed = [
+            undefined, null,          // server-to-server / Vite proxy
+            'http://localhost:5173',
+            'http://localhost:3000',
+            'http://127.0.0.1:5173',
+            process.env.VITE_FRONTEND_URL,  // e.g. https://pricekam.vercel.app
+        ];
         if (
             !origin ||
+            allowed.includes(origin) ||
             origin.includes('localhost') ||
             origin.includes('127.0.0.1') ||
+            origin.includes('vercel.app') ||
             origin.includes('ngrok-free.app') ||
             origin.includes('ngrok.io')
         ) {
@@ -912,6 +920,11 @@ app.use((req, res) => {
     res.status(404).json({ message: `Route ${req.method} ${req.url} not found` });
 });
 
-app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-});
+// Only start server in development (not when used as Vercel serverless function)
+if (process.env.NODE_ENV !== 'production') {
+    app.listen(PORT, () => {
+        console.log(`🚀 Server running on port ${PORT}`);
+    });
+}
+
+export default app;

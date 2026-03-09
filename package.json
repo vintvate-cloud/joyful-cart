@@ -4,15 +4,17 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "concurrently --names \"CLIENT,SERVER\" --prefix-colors \"cyan,yellow\" \"vite\" \"npm run server\"",
+    "build": "npx prisma generate && vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
     "server": "tsx watch server/index.ts",
-    "prisma:seed": "prisma db seed"
+    "dev:all": "npm run dev",
+    "prisma:seed": "prisma db seed",
+    "vercel-build": "npx prisma generate && vite build"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -104,6 +106,7 @@
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react-swc": "^3.11.0",
     "autoprefixer": "^10.4.21",
+    "concurrently": "^9.2.1",
     "eslint": "^9.32.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
